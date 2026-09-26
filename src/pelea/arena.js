@@ -8,6 +8,7 @@ import * as THREE from "three";
 import * as T from "./tex.js";
 import { crearCielo, entornoDesdeCielo } from "./cielo.js";
 import { crearRoca, crearParticulas, crearLlama, crearHaz, fbm3, tuboAfilado } from "./props.js";
+import { CONSTRUCTORES } from "./escenarios.js";
 
 export const ARENA = { medioAncho: 5.2, zFondo: -5.2, zCerca: 4.4, altoTecho: 5.02 };
 
@@ -39,7 +40,18 @@ export const TEMAS = {
   nieve: { nombre: "Ventisca del Norte", cielo: "nieve", sol: [-0.22, 0.24, -0.94], solCol: "#eaf0ff", solI: 6, niebla: ["#dfe8f2", 0.02], hemi: ["#dfeaff", "#8a9ab0", 1.2],
     relleno: ["#cfe0ff", 0.9], rim: ["#a8c8ff", 1.6], patada: ["#f0f6ff", 1.1], fuego: 22, techo: false, rayos: 0.5, rayoCol: "#eaf0ff", exposicion: 1.05,
     estandartes: ["#1c3a5a", "#5a1c2a", "#1c3a5a", "#5a1c2a"], polvo: "#ffffff", env: 0.9, terreno: "#f4f8ff", nieve: true, pisoTinte: "#c8d4e4",
-    grade: { sombra: "#2a3a66", luz: "#e8f0ff", contraste: 0.98 } }
+    grade: { sombra: "#2a3a66", luz: "#e8f0ff", contraste: 0.98 } },
+
+  // ---- escenarios con geometría propia (ver escenarios.js)
+  calle: { nombre: "Calle Apocalíptica", tipo: "calle", cielo: "apocalipsis", sol: [-0.16, 0.2, -0.96], solCol: "#ff8a3a", solI: 6.5, niebla: ["#7a4a34", 0.0085], hemi: ["#e0a070", "#4a2c20", 1.35],
+    relleno: ["#a8b8d8", 1.1], rim: ["#ff7a30", 2.4], patada: ["#ffc090", 1.4], fuego: 36, rayos: 0.75, rayoCol: "#ff8a40", exposicion: 1.3, polvo: "#ffb888", env: 0.9,
+    grade: { sombra: "#1a0c08", luz: "#ff9a58", saturacion: 0.95, contraste: 1.12 } },
+  cyber: { nombre: "Azotea Cyberpunk", tipo: "cyber", cielo: "cyber", sol: [0.25, 0.32, -0.91], solCol: "#ff5ac8", solI: 2.4, niebla: ["#1a0a2e", 0.0062], hemi: ["#6a48b8", "#0a0614", 0.9],
+    relleno: ["#28d8ff", 1.15], rim: ["#ff3aa8", 2.8], patada: ["#a878ff", 0.8], fuego: 28, rayos: 0.3, rayoCol: "#ff5ac8", exposicion: 1.2, polvo: "#a0b8ff", env: 0.9,
+    grade: { sombra: "#0a0620", luz: "#7ad8ff", saturacion: 1.25, contraste: 1.15, aberracion: 0.3 } },
+  mazmorra: { nombre: "Mazmorra Medieval", tipo: "mazmorra", cielo: "noche", sol: [0.32, 0.78, 0.5], solCol: "#ffc890", solI: 2.2, niebla: ["#120c0a", 0.017], hemi: ["#8a6a50", "#20140c", 0.6],
+    relleno: ["#6a80c8", 0.45], rim: ["#ff8a40", 1.7], patada: ["#ffb070", 0.9], fuego: 32, rayos: 0.0, rayoCol: "#ffb070", exposicion: 1.2, polvo: "#e0c8a0", env: 0.25,
+    grade: { sombra: "#0c0806", luz: "#ffb070", saturacion: 1.0, contraste: 1.15 } }
 };
 export const ORDEN_TEMAS = Object.keys(TEMAS);
 
@@ -53,6 +65,7 @@ export class Arena {
     this.llamas = [];
     this.estandartes = [];
     this.luces = {};
+    this.actualizadores = [];                                   // funciones (t, dt, cam) que animan cosas propias de cada escenario
     this._construir();
   }
 
@@ -75,6 +88,7 @@ export class Arena {
     esc.add(this.cielo);
     esc.environment = entornoDesdeCielo(r, this.cielo);
     esc.environmentIntensity = this.tema.env;
+    if (this.tema.tipo) { CONSTRUCTORES[this.tema.tipo](this); return; }          // escenarios con geometría propia (escenarios.js)
 
     /* ---- materiales */
     const piso = T.texturaPiso(), col = T.texturaColumna(), lisa = T.texturaPiedra(3), muro = T.texturaPiedra(8, [176, 140, 104], [64, 50, 42]);
@@ -223,7 +237,8 @@ export class Arena {
     const patada = new THREE.DirectionalLight(...this.tema.patada); patada.position.set(4, 2.4, 8);
     esc.add(hemi, relleno, rim, patada);
     // luz de brasero (se anima en update)
-    for (const x of [-6, 6]) { const l = new THREE.PointLight("#ff8a30", this.tema.fuego, 11, 1.7); l.position.set(x, 1.9, -3.4); esc.add(l); this.llamas.push({ luz: l, base: this.tema.fuego, fase: Math.random() * 10 }); }
+    const lam = this.tema.lamparas || { color: "#ff8a30", pos: [[-6, 1.9, -3.4], [6, 1.9, -3.4]] };
+    lam.pos.forEach((p, i) => { const l = new THREE.PointLight(lam.colores?.[i] || lam.color, this.tema.fuego, 11, 1.7); l.position.set(...p); esc.add(l); this.llamas.push({ luz: l, base: this.tema.fuego, fase: Math.random() * 10 }); });
     // luces reservadas para los proyectiles (una por jugador): agregarlas en plena pelea recompilaría todos los materiales
     this.luzProj = [0, 1].map(() => { const l = new THREE.PointLight("#fff", 0, 8, 1.5); esc.add(l); return l; });
     this.luces = { sol, hemi, relleno, rim, patada };
@@ -324,6 +339,7 @@ export class Arena {
     }
     const alto = this.render.h * this.render.renderer.getPixelRatio();
     for (const a of this.animados) a.userData.actualizar?.(t, alto);
+    for (const f of this.actualizadores) f(t, dt, cam);
     for (const f of this.llamas) {
       if (f.luz) f.luz.intensity = f.base * (0.85 + 0.15 * Math.sin(t * 13 + f.fase) * Math.sin(t * 7.3 + f.fase * 2) + 0.08 * Math.sin(t * 31 + f.fase));
       if (f.llama) f.llama.userData.actualizar(t, cam);

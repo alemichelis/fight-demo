@@ -9,12 +9,12 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { adjuntarSalas } from "./salas.mjs";
+import { iniciarDB } from "./db.mjs";
+import { api } from "./api.mjs";
 
 const RAIZ = path.dirname(fileURLToPath(import.meta.url));
 const PUERTO = Number(process.env.PORT) || 5173;
-const DIR_SUBIDAS = path.join(RAIZ, "assets", "uploads");
-const LIMITE_SUBIDA = 40 * 1024 * 1024;           // un avatar de Avaturn pesa unos 5-15 MB
-fs.mkdirSync(DIR_SUBIDAS, { recursive: true });
+let dbLista = false, dbError = "";
 
 const MIME = {
   ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".mjs": "text/javascript; charset=utf-8",
@@ -24,36 +24,12 @@ const MIME = {
 };
 const json = (res, code, obj) => { res.writeHead(code, { "Content-Type": MIME[".json"], "Cache-Control": "no-store" }); res.end(JSON.stringify(obj)); };
 
-function leerCuerpo(req, limite) {
-  return new Promise((ok, mal) => {
-    const trozos = []; let total = 0;
-    req.on("data", c => { total += c.length; if (total > limite) { mal(new Error("Archivo demasiado grande")); req.destroy(); return; } trozos.push(c); });
-    req.on("end", () => ok(Buffer.concat(trozos)));
-    req.on("error", mal);
-  });
-}
-
-async function api(req, res, url) {
-  if (url.pathname === "/api/upload" && req.method === "POST") {
-    const base = path.basename(String(url.searchParams.get("name") || "av.glb")).replace(/[^\w.\-]+/g, "_").replace(/^\.+/, "");
-    if (path.extname(base).toLowerCase() !== ".glb") return json(res, 400, { ok: false, msg: "Sólo se aceptan archivos .glb" });
-    const datos = await leerCuerpo(req, LIMITE_SUBIDA);
-    if (datos.length < 12 || datos.toString("latin1", 0, 4) !== "glTF") return json(res, 400, { ok: false, msg: "No es un GLB válido" });
-    const { name: raiz } = path.parse(base);
-    let destino = path.join(DIR_SUBIDAS, base), n = 1;
-    while (fs.existsSync(destino)) destino = path.join(DIR_SUBIDAS, `${raiz}-${++n}.glb`);
-    fs.writeFileSync(destino, datos);
-    return json(res, 200, { ok: true, path: "assets/uploads/" + path.basename(destino), name: path.basename(destino), size: datos.length });
-  }
-  json(res, 404, { ok: false, msg: "Ruta de API desconocida" });
-}
-
 function estatico(req, res, url) {
   let ruta = decodeURIComponent(url.pathname);
   if (ruta === "/") ruta = "/index.html";
   else if (ruta === "/pelea.html") ruta = "/index.html";          // compatibilidad con los links viejos
   const abs = path.normalize(path.join(RAIZ, ruta));
-  const privado = ["server.js", "salas.mjs", "package.json", "package-lock.json"].map(f => path.join(RAIZ, f));
+  const privado = ["server.js", "salas.mjs", "api.mjs", "db.mjs", "package.json", "package-lock.json"].map(f => path.join(RAIZ, f));
   if (!abs.startsWith(RAIZ + path.sep) || privado.includes(abs)) { res.writeHead(403); return res.end("Prohibido"); }
   fs.stat(abs, (err, st) => {
     if (err || !st.isFile()) { res.writeHead(404); return res.end("No encontrado"); }
@@ -71,8 +47,11 @@ function estatico(req, res, url) {
 const servidor = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, "http://localhost");
-    if (url.pathname.startsWith("/api/")) return await api(req, res, url);
-    if (url.pathname === "/salud") { res.writeHead(200); return res.end("ok"); }
+    if (url.pathname.startsWith("/api/")) {
+      if (!dbLista && url.pathname !== "/api/config") return json(res, 503, { ok: false, msg: "La base de datos no está disponible: " + dbError });
+      return await api(req, res, url);
+    }
+    if (url.pathname === "/salud") { res.writeHead(dbLista ? 200 : 503); return res.end(dbLista ? "ok" : "sin base de datos: " + dbError); }
     if (req.method !== "GET" && req.method !== "HEAD") { res.writeHead(405); return res.end(); }
     estatico(req, res, url);
   } catch (e) {
@@ -82,3 +61,5 @@ const servidor = http.createServer(async (req, res) => {
 });
 adjuntarSalas(servidor);
 servidor.listen(PUERTO, () => console.log(`\n  REINO CAÍDO  →  http://localhost:${PUERTO}\n`));
+iniciarDB().then(() => { dbLista = true; console.log("  Base de datos lista."); })
+  .catch(e => { dbError = e.message; console.error("  ✗ No pude conectar con MySQL:", e.message, "\n    Revisá DB_HOST / DB_USER / DB_PASSWORD / DB_NAME."); });

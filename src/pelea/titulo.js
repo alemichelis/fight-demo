@@ -1,12 +1,10 @@
-// Pantalla de título: un jardín de arces rojos al amanecer con un dragón de piedra sobre un peñasco, al otro lado del lago.
+// Escena del jardín (fondo del lobby del torneo): un jardín de arces rojos al amanecer con un dragón de piedra sobre un peñasco, al otro lado del lago.
 // Cámara baja con leve deriva y parallax con el mouse; hojas que caen, humo de incienso, bruma a ras de suelo y rayos de sol.
 
 import * as THREE from "three";
 import * as T from "./tex.js";
 import { crearCielo, entornoDesdeCielo } from "./cielo.js";
 import { crearRoca, crearDragon, crearParticulas, tuboAfilado, fbm3 } from "./props.js";
-import { sfx, ambiental } from "./sonido.js";
-import { AYUDA } from "./controles.js";
 
 const SOL = new THREE.Vector3(0.3, 0.33, -0.89).normalize();
 const PALETA_HOJAS = ["#c1241b", "#e0421f", "#a01712", "#e8672a", "#7a1010", "#f08a30", "#d13a20"];
@@ -79,7 +77,7 @@ export class Titulo {
     this.app = app; this.render = app.render;
     this.escena = new THREE.Scene(); this.t = 0; this.animados = [];
     this.camara = new THREE.PerspectiveCamera(40, 16 / 9, 0.3, 1500);
-    this.mouse = new THREE.Vector2(); this.estado = "esperando"; this.sel = 0; this.panel = false;
+    this.mouse = new THREE.Vector2();
     this._construir();
   }
 
@@ -196,97 +194,6 @@ export class Titulo {
     this.bruma = crearBruma(); this.bruma.position.set(0, 0.7, -40); esc.add(this.bruma);
     const bruma2 = crearBruma(); bruma2.position.set(0, 1.6, -70); esc.add(bruma2); this.animados.push(bruma2, this.bruma);
   }
-
-  /* ---------------------------------------------------------------- interfaz */
-
-  iniciar(ui) {
-    this.ui = ui;
-    const el = document.createElement("section"); el.className = "titulo";
-    el.innerHTML = `
-      <div class="logo">
-        <div class="kicker">Torneo de las Sombras</div>
-        <h1>Reino Caído</h1>
-        <div class="filete"></div>
-      </div>
-      <div class="pulsar">Presioná <b>ENTER</b> para comenzar</div>
-      <ul class="menu-titulo" hidden></ul>
-      <div class="pie-titulo">three.js · demo de combate 3D</div>
-      <div class="panel sala"><div class="caja"><h2>Sala online</h2><div class="sala-cuerpo"></div>
-        <div class="sala-btns"></div><div class="cierra">Esc para volver</div></div></div>
-      <div class="panel ctl"><div class="caja"><h2>Controles</h2>
-        <table><tr><th></th><th>Jugador 1</th><th>Jugador 2</th></tr>${AYUDA.map(([a, b, c]) => `<tr><td>${a}</td><td>${b}</td><td>${c}</td></tr>`).join("")}</table>
-        <div class="cierra">Esc para volver · En «Un jugador» podés usar ambos juegos de teclas</div></div></div>`;
-    ui.append(el); this.el = el;
-    this.menuEl = el.querySelector(".menu-titulo"); this.pulsarEl = el.querySelector(".pulsar"); this.panelEl = el.querySelector(".panel.ctl"); this.salaEl = el.querySelector(".panel.sala");
-    this.opcionesMenu = [
-      { texto: "Un jugador", fn: () => this._empezar("1p") },
-      { texto: "Dos jugadores", fn: () => this._empezar("2p") },
-      { texto: "Sala online", fn: () => this._salaPanel(true) },
-      { texto: "Controles", fn: () => this._panel(true) }
-    ];
-    this.menuEl.innerHTML = this.opcionesMenu.map(o => `<li>${o.texto}</li>`).join("");
-    [...this.menuEl.children].forEach((li, i) => { li.onmouseenter = () => this._sel(i); li.onclick = () => { this._abrir(); this._sel(i); this.opcionesMenu[i].fn(); }; });
-    el.addEventListener("click", e => { if (this.estado === "esperando") this._abrir(); });
-    this._mm = e => { this.mouse.set(e.clientX / innerWidth - 0.5, e.clientY / innerHeight - 0.5); };
-    window.addEventListener("mousemove", this._mm);
-    this.app.controles.alPresionar = (cod, e, r) => this._tecla(cod, e, r);
-    this.render.mostrar(this.escena, this.camara, this.opciones);
-    requestAnimationFrame(() => el.classList.add("on"));
-    this.mostrado = true;
-  }
-
-  _abrir() {
-    if (this.estado !== "esperando") return;
-    this.estado = "menu"; sfx.activar(); sfx.confirmar(); ambiental.poner(0.55);
-    this.pulsarEl.hidden = true; this.menuEl.hidden = false; this._sel(0);
-  }
-  _sel(i) { this.sel = (i + this.opcionesMenu.length) % this.opcionesMenu.length; [...this.menuEl.children].forEach((li, k) => li.classList.toggle("sel", k === this.sel)); }
-  /* ---- sala online ---- */
-  async _salaPanel(on) {
-    this.salaAbierta = on; this.salaEl.classList.toggle("on", on); if (!on) return;
-    const sala = this.app.sala;
-    sala.alCambiar = () => this._pintarSala();
-    if (!sala.activa) { try { await sala.crear(); } catch (e) { sala.err = e.message; } }
-    this._pintarSala();
-  }
-  _pintarSala() {
-    const sala = this.app.sala, cuerpo = this.salaEl.querySelector(".sala-cuerpo"), btns = this.salaEl.querySelector(".sala-btns");
-    if (!sala.activa) { cuerpo.innerHTML = `<p class="err">${sala.err || "Creando la sala…"}</p>`; btns.innerHTML = ""; return; }
-    const L = sala.links();
-    cuerpo.innerHTML = `
-      <p>Código de sala: <b class="cod">${sala.codigo}</b></p>
-      <p class="lk"><span>Link para el JUGADOR 2</span><input readonly value="${L.jugador}"><button data-c="${L.jugador}">Copiar</button></p>
-      <p class="lk"><span>Link para ESPECTADORES</span><input readonly value="${L.espectador}"><button data-c="${L.espectador}">Copiar</button></p>
-      <ul class="est">
-        <li class="${sala.hayJugador ? "ok" : ""}">Jugador 2: ${sala.hayJugador ? "conectado" : "esperando…"}</li>
-        <li>Espectadores: ${sala.espectadores}</li>
-        <li class="${sala.transmitiendo ? "ok" : ""}">Transmisión: ${sala.transmitiendo ? "en vivo" : "sin iniciar (los invitados no ven nada hasta que la inicies)"}</li>
-        <li class="${sala.micOn ? "ok" : ""}">Tu micrófono: ${sala.micOn ? "encendido" : "apagado"}</li>
-      </ul>
-      ${sala.err ? `<p class="err">${sala.err}</p>` : ""}
-      <p class="nota">Para que te vean desde otra red hay que exponer este servidor con un túnel HTTPS (cloudflared, ngrok…) y abrir el juego desde esa URL: así los links salen con la dirección pública y los micrófonos funcionan.</p>`;
-    btns.innerHTML = `<button class="b-tx">${sala.transmitiendo ? "Transmisión activa" : "1 · Iniciar transmisión"}</button><button class="b-mic">${sala.micOn ? "Silenciar mi micrófono" : "Activar mi micrófono"}</button><button class="b-go">2 · Elegir personajes ▶</button>`;
-    cuerpo.querySelectorAll("button[data-c]").forEach(b => { b.onclick = () => { navigator.clipboard?.writeText(b.dataset.c); b.textContent = "¡Copiado!"; }; });
-    btns.querySelector(".b-tx").onclick = () => sala.transmitir();
-    btns.querySelector(".b-mic").onclick = () => sala.activarMic(!sala.micOn);
-    btns.querySelector(".b-go").onclick = () => { if (this.saliendo) return; this.saliendo = true; sfx.confirmar(); this.app.ir("seleccion", { modo: "online" }); };
-  }
-
-  _panel(on) { this.panel = on; this.panelEl.classList.toggle("on", on); sfx.ui(); }
-
-  _tecla(cod, e, remoto) {
-    if (remoto) return;
-    sfx.activar();
-    if (this.salaAbierta) { if (cod === "Escape") this._salaPanel(false); return; }
-    if (this.panel) { if (["Escape", "Enter", "Backspace", "Space"].includes(cod)) this._panel(false); return; }
-    if (this.estado === "esperando") { if (["Enter", "Space", "KeyF", "KeyJ"].includes(cod)) this._abrir(); return; }
-    if (["ArrowUp", "KeyW"].includes(cod)) { this._sel(this.sel - 1); sfx.mover(); }
-    else if (["ArrowDown", "KeyS"].includes(cod)) { this._sel(this.sel + 1); sfx.mover(); }
-    else if (["Enter", "Space", "KeyF", "KeyJ"].includes(cod)) this.opcionesMenu[this.sel].fn();
-    else if (cod === "Escape") { this.estado = "esperando"; this.menuEl.hidden = true; this.pulsarEl.hidden = false; }
-  }
-
-  _empezar(modo) { if (this.saliendo) return; this.saliendo = true; sfx.confirmar(); this.app.ir("seleccion", { modo }); }
 
   destruir() {
     window.removeEventListener("mousemove", this._mm);

@@ -26,16 +26,8 @@ export const FIGHT = Object.fromEntries(Object.entries({
   knockdown: "Dying Backwards", ko: "Dying Backwards", getup: "Getting Up", win: "Cheering"
 }).map(([k, v]) => [k, encodeURI(`${FM}${v}.fbx`)]));
 
-export const ROSTER = [
-  { id: "avatar", nombre: "AVATAR", titulo: "El Elegido", color: "#3fb6ff", modelo: "/assets/models/avaturn-animado.glb",
-    anims: [{ url: ZOMBIE_ANIMS, modo: "retarget" }, { url: "/assets/models/avatar-moves.glb", modo: "propio" }],
-    retarget: true, fbx: FIGHT, altura: 1.78 },
-  { id: "necro", nombre: "NECRO", titulo: "Hueso y Ceniza", color: "#9be35a", modelo: "/assets/zombies/ch30.glb", anims: [{ url: ZOMBIE_ANIMS }], retarget: true, fbx: FIGHT, altura: 1.86 },
-  { id: "centinela", nombre: "CENTINELA", titulo: "Ley Sin Vida", color: "#ff8f3f", modelo: "/assets/zombies/copzombie-actisdato.glb", anims: [{ url: ZOMBIE_ANIMS }], retarget: true, fbx: FIGHT, altura: 1.84 },
-  { id: "parasito", nombre: "PARÁSITO", titulo: "Hambre Antigua", color: "#c05bff", modelo: "/assets/zombies/parasite-starkie.glb", anims: [{ url: ZOMBIE_ANIMS }], retarget: true, fbx: FIGHT, altura: 1.9 },
-  { id: "soldado", nombre: "SOLDADO", titulo: "Guerra Eterna", color: "#ff4a3a", modelo: "/assets/zombies/warzombie-pedroso.glb", anims: [{ url: ZOMBIE_ANIMS }], retarget: true, fbx: FIGHT, altura: 1.9 },
-  { id: "viuda", nombre: "VIUDA", titulo: "Susurro Rojo", color: "#ff5fa8", modelo: "/assets/zombies/zombiegirl-kurniawan.glb", anims: [{ url: ZOMBIE_ANIMS }], retarget: true, fbx: FIGHT, altura: 1.7 }
-];
+/** Sin luchadores fijos: cada jugador trae los suyos (avatares de Avaturn guardados en su cuenta). */
+export const ROSTER = [];
 
 /* ------------------------------------------------------------------ carga y préstamo de animaciones */
 
@@ -250,7 +242,7 @@ export class Actor {
 export async function instanciar(def) {
   const datos = await cargar(def);
   const { scene } = await loadModel(def.modelo);
-  return new Actor(datos, scene);
+  return new Actor({ ...datos, def }, scene);                  // el def de ESTA pelea manda (nombre y color cambian según el lado)
 }
 
 /* ------------------------------------------------------------------ retratos */

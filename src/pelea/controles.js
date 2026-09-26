@@ -9,8 +9,8 @@ const MAPAS = {
 export class Controles {
   constructor() {
     this.teclas = new Set();
-    this.remotoTeclas = new Set();               // teclas del jugador 2 online (llegan por WebRTC)
-    this.online = false;
+    this.remotoTeclas = { 1: new Set(), 2: new Set() };   // teclas de jugadores remotos (llegan por WebRTC), por lado de la pelea
+    this.fuentes = { 1: "local", 2: "local" };            // quién maneja cada lado: teclado de esta PC o un amigo conectado
     this.flancos = new Set();
     this.previo = { 1: {}, 2: {} };
     this.alPresionar = null;                       // callback(codigo) para menús
@@ -40,10 +40,11 @@ export class Controles {
 
   /** modo1p: el jugador 1 también puede usar el mapa del 2 (flechas + JKL) */
   leer(jugador, { compartido = false } = {}) {
-    const mapas = compartido && jugador === 1 ? [MAPAS[1], MAPAS[2]] : [MAPAS[jugador]];
-    const remoto = this.online && jugador === 2, fuente = remoto ? this.remotoTeclas : this.teclas;
-    const dn = ks => (remoto ? [MAPAS[1], MAPAS[2]] : mapas).some(m => m[ks].some(c => fuente.has(c)));
-    const pad = remoto ? null : this._pad(jugador - 1) || (compartido && jugador === 1 ? this._pad(0) : null);
+    const remoto = this.fuentes[jugador] === "remoto", fuente = remoto ? this.remotoTeclas[jugador] : this.teclas;
+    // el amigo remoto y el anfitrión que juega solo pueden usar cualquiera de los dos juegos de teclas
+    const mapas = remoto || compartido ? [MAPAS[1], MAPAS[2]] : [MAPAS[jugador]];
+    const dn = ks => mapas.some(m => m[ks].some(c => fuente.has(c)));
+    const pad = remoto ? null : this._pad(jugador - 1) || (compartido ? this._pad(0) : null);
     const v = {
       izq: dn("izq") || !!pad?.izq, der: dn("der") || !!pad?.der, arriba: dn("arriba") || !!pad?.arriba, abajo: dn("abajo") || !!pad?.abajo,
       p: dn("p") || !!pad?.p, k: dn("k") || !!pad?.k, s: dn("s") || !!pad?.s, bloq: dn("bloq") || !!pad?.bloq

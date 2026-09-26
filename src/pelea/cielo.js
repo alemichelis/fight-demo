@@ -67,6 +67,14 @@ export const CIELOS = {
     zenith: "#a8bad4", mid: "#d4dfee", horizon: "#f4f7fc", ground: "#dde4ee",
     sunCol: "#ffffff", cloudLit: "#ffffff", cloudShade: "#b8c6da", clouds: 1.0, sunPower: 0.4
   },
+  apocalipsis: {
+    zenith: "#160e0c", mid: "#54372a", horizon: "#d07a3a", ground: "#2a1a14",
+    sunCol: "#ff8a3a", cloudLit: "#e8804a", cloudShade: "#1c1210", clouds: 1.0, sunPower: 0.9
+  },
+  cyber: {
+    zenith: "#05020f", mid: "#1b0b36", horizon: "#6a1e78", ground: "#0a0614",
+    sunCol: "#ff5ac8", cloudLit: "#c04aa0", cloudShade: "#0a0418", clouds: 0.75, sunPower: 0.4, estrellas: 0.6
+  },
   dia: {
     zenith: "#3f6fbe", mid: "#8fb1de", horizon: "#e6dccd", ground: "#7d8794",
     sunCol: "#fff0d0", cloudLit: "#ffffff", cloudShade: "#7a8cab", clouds: 1.0, sunPower: 0.5

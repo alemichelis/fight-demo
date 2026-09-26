@@ -83,7 +83,6 @@ export class Combate {
     const [a1, a2] = await Promise.all([instanciar(d1), instanciar(d2)]);
     this.l = [new Luchador(a1, 1, -1.7), new Luchador(a2, 2, 1.7)];
     this.l[0].esCPU = false; this.l[1].esCPU = this.modo === "1p";
-    if (this.modo === "online") this.l[1].tagOnline = true;
     for (const l of this.l) this.escena.add(l.actor.raiz);
     this.hud = this.ctx.hud = new HudPelea(this.app.ui, this.l.map(l => ({ def: l.def, retrato: this.app.retratos?.[l.def.id], esCPU: l.esCPU })));
     this.app.controles.alPresionar = (cod, e) => this._tecla(cod, e);
@@ -144,14 +143,14 @@ export class Combate {
 
   /* ---------------------------------------------------------------- entrada / pausa */
 
-  _tecla(cod, e, remoto) {
-    if (remoto) return;
+  _tecla(cod, e) {
+    if (this.modo === "torneo") return;                     // en el torneo no se pausa: hay gente mirando y peleando desde otras PCs
     if (this.hud?.teclaMenu(cod)) return;
     if (cod === "Escape" || cod === "KeyP") this._pausar(!this.pausado);
   }
 
   _pausar(on) {
-    if (this.terminado || this.menuAbierto || this.fase === "carga") return;
+    if (this.modo === "torneo" || this.terminado || this.menuAbierto || this.fase === "carga") return;
     if (on === this.pausado) return;
     this.pausado = on;
     if (on) this.hud.abrirMenu("PAUSA", [
@@ -308,7 +307,13 @@ export class Combate {
       if (this.faseT > 1.5) this.escalaTiempo = Math.min(1, this.escalaTiempo + dt * 1.2);
       if (this.faseT > 2.7) { const g = this.perdedor === a ? b : a; this._finRonda(g); }
     } else if (this.fase === "ganador") {
-      if (this.finPartida) { if (this.faseT > 3.2 && !this.menuAbierto) { this.menuAbierto = true; this._menuFin(); } }
+      if (this.finPartida) {
+        if (this.faseT > 3.2 && !this.menuAbierto) {
+          this.menuAbierto = true;
+          if (this.modo === "torneo") { this.terminado = true; this.opts.alTerminar?.({ ganador: this.victorias[0] > this.victorias[1] ? 0 : 1, victorias: [...this.victorias] }); }
+          else this._menuFin();
+        }
+      }
       else if (this.faseT > 3.0) this._empezarRonda();
     }
 
@@ -317,8 +322,9 @@ export class Combate {
     const juega = this.fase === "lucha";
     let e1 = vacia, e2 = vacia;
     if (juega) {
-      e1 = controles.leer(1, { compartido: this.modo === "1p" });
-      e2 = this.modo !== "1p" ? controles.leer(2) : this.ia.decidir(dtJ, b, a, this.proy);
+      const torneo = this.modo === "torneo";
+      e1 = controles.leer(1, { compartido: torneo ? controles.fuentes[1] === "local" : this.modo === "1p" });
+      e2 = this.modo !== "1p" ? controles.leer(2, { compartido: torneo && controles.fuentes[2] === "local" }) : this.ia.decidir(dtJ, b, a, this.proy);
     } else { controles.leer(1); controles.leer(2); }
     controles.cerrarCuadro();
 
