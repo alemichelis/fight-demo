@@ -1,0 +1,19 @@
+{
+  "name": "reino-caido",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Reino Caído: juego de pelea 3D (Three.js) con salas online por WebRTC",
+  "scripts": {
+    "start": "node server.js",
+    "build": "echo sin-build"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "three": "^0.186.0",
+    "ws": "^8.21.3"
+  },
+  "main": "server.js"
+}
