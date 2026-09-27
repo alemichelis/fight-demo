@@ -46,7 +46,7 @@ export const TEMAS = {
   calle: { nombre: "Calle Apocalíptica", tipo: "calle", cielo: "apocalipsis", sol: [-0.16, 0.2, -0.96], solCol: "#ff8a3a", solI: 6.5, niebla: ["#7a4a34", 0.0085], hemi: ["#e0a070", "#4a2c20", 1.35],
     relleno: ["#a8b8d8", 1.1], rim: ["#ff7a30", 2.4], patada: ["#ffc090", 1.4], fuego: 36, rayos: 0.75, rayoCol: "#ff8a40", exposicion: 1.3, polvo: "#ffb888", env: 0.9,
     grade: { sombra: "#1a0c08", luz: "#ff9a58", saturacion: 0.95, contraste: 1.12 } },
-  cyber: { nombre: "Azotea Cyberpunk", tipo: "cyber", cielo: "cyber", sol: [0.25, 0.32, -0.91], solCol: "#ff5ac8", solI: 2.4, niebla: ["#1a0a2e", 0.0062], hemi: ["#6a48b8", "#0a0614", 0.9],
+  cyber: { nombre: "Azotea Cyberpunk", tipo: "cyber", cielo: "cyber", sol: [0.25, 0.32, -0.91], solCol: "#ff5ac8", solI: 2.4, niebla: ["#1a0a2e", 0.011], hemi: ["#6a48b8", "#0a0614", 0.9],
     relleno: ["#28d8ff", 1.15], rim: ["#ff3aa8", 2.8], patada: ["#a878ff", 0.8], fuego: 28, rayos: 0.3, rayoCol: "#ff5ac8", exposicion: 1.2, polvo: "#a0b8ff", env: 0.9,
     grade: { sombra: "#0a0620", luz: "#7ad8ff", saturacion: 1.25, contraste: 1.15, aberracion: 0.3 } },
   mazmorra: { nombre: "Mazmorra Medieval", tipo: "mazmorra", cielo: "noche", sol: [0.32, 0.78, 0.5], solCol: "#ffc890", solI: 2.2, niebla: ["#120c0a", 0.017], hemi: ["#8a6a50", "#20140c", 0.6],

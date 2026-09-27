@@ -7,6 +7,7 @@
 import * as THREE from "three";
 import * as T from "./tex.js";
 import { crearRoca, crearParticulas, crearLlama, fbm3 } from "./props.js";
+import { loadModel } from "/src/core/assets.js";
 
 /* ------------------------------------------------------------------ utilidades */
 
@@ -301,6 +302,19 @@ export function construirCyber(A) {
   }
   A.actualizadores.push((tt, dt) => { for (const c of coches) { c.g.position.x += c.v * dt; if (c.g.position.x > 130) c.g.position.x = -130; if (c.g.position.x < -130) c.g.position.x = 130; } });
 
+  /* estación monumental de fondo: se ve entre las torres, lejos del plano de pelea */
+  loadModel("/juegos/reino-caido/assets/models/cyberpunk_station.glb").then(({ scene: estacion }) => {
+    const ESC = 1.1, MINY = -4.83;                    // MINY: punto más bajo del modelo tal cual viene, para apoyarlo en el piso
+    estacion.scale.setScalar(ESC);
+    estacion.position.set(-6, -1.25 - MINY * ESC, -78);         // de costado y hacia atrás, para que su lado ancho (103u) quede de frente y no se meta en los edificios cercanos
+    estacion.rotation.y = Math.PI / 2;
+    estacion.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; o.frustumCulled = false; } });
+    esc.add(estacion); window.__estacionLista = true;
+    // un par de luces de color le pegan de lleno, si no queda como una silueta negra contra el neón de atrás
+    const luzC = new THREE.PointLight("#40e0ff", 60, 55, 1.4); luzC.position.set(-14, 14, -18); esc.add(luzC);
+    const luzM = new THREE.PointLight("#ff2a9a", 55, 55, 1.4); luzM.position.set(18, 20, -25); esc.add(luzM);
+  }).catch(e => console.warn("[cyber] no pude cargar cyberpunk_station.glb:", e.message));
+
   /* utilería de la azotea */
   const mGris = std({ color: "#20232c", roughness: 0.55, metalness: 0.6 });
   for (const [x, z, s] of [[-13.5, -3.6, 1], [-17.5, -3.9, 0.8], [15, -3.5, 1.1]]) {
@@ -310,6 +324,13 @@ export function construirCyber(A) {
   }
   const tanque = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, 2.8, 20), std({ color: "#2a2f3c", roughness: 0.5, metalness: 0.6 })); tanque.position.set(20, 1.4, -3.4); tanque.castShadow = true; esc.add(tanque);
   caja(esc, 3.2, 0.1, 3.2, mGris, 20, 0.05, -3.4);
+
+  /* stickers/grafiti pegados en las paredes de servicio, como marca del lugar */
+  const logo = new THREE.TextureLoader().load("/juegos/reino-caido/assets/models/logo-jakks.png", t => { t.colorSpace = THREE.SRGBColorSpace; });
+  const mLogo = new THREE.MeshBasicMaterial({ map: logo, transparent: true, depthWrite: false });
+  const sticker = (x, y, z, w, rz = 0) => { const s = new THREE.Mesh(new THREE.PlaneGeometry(w, w), mLogo); s.position.set(x, y, z); s.rotation.z = rz; esc.add(s); return s; };
+  sticker(-13.5, 1.05, -3.6 + 0.87, 1.3);                  // pegado de frente en el primer tanque, mirando a cámara
+  sticker(20, 1.55, -3.4 + 1.52, 2.1, 0.06);               // grande, sobre el tanque grande, un poco torcido
   const antena = new THREE.Mesh(new THREE.ConeGeometry(1.1, 0.5, 20, 1, true), std({ color: "#9aa4b8", roughness: 0.4, metalness: 0.9, side: THREE.DoubleSide })); antena.position.set(-24, 2.2, -3.6); antena.rotation.set(-0.5, 0.6, 0); esc.add(antena);
   caja(esc, 0.1, 2.2, 0.1, mGris, -24, 1.1, -3.6);
   for (const [x, col] of [[-7.2, "#20e0ff"], [7.2, "#ff2a9a"]]) {                          // tubos de neón verticales: las dos luces de la arena
@@ -317,12 +338,26 @@ export function construirCyber(A) {
     caja(esc, 0.5, 0.3, 0.5, mGris, x, 0.55, -4.9); caja(esc, 0.5, 0.3, 0.5, mGris, x, 4.4, -4.9);
   }
 
-  /* clima: llovizna con brillo de neón y bruma de vapor */
+  /* clima: lluvia más cargada, con brillo de neón, y bruma baja pegada al piso */
   const punto = T.texturaPunto();
-  const lluvia = crearParticulas({ n: 1500, centro: [0, 0, 0], caja: [18, 9, 10], color: "#8ab8ff", intensidad: 1.4, tam: 0.045, subida: -12, deriva: 0.15, mapa: punto, semilla: 31 });
+  const lluvia = crearParticulas({ n: 2400, centro: [0, 0, 0], caja: [20, 10, 11], color: "#8ab8ff", intensidad: 1.8, tam: 0.05, subida: -14, deriva: 0.18, mapa: punto, semilla: 31 });
   lluvia.position.z = 1; esc.add(lluvia); A.animados.push(lluvia);
-  const vapor = crearParticulas({ n: 60, centro: [0, 0.1, 0], caja: [14, 1.8, 4], color: "#6a4a9a", intensidad: 0.45, tam: 2.2, subida: 0.08, deriva: 0.6, mapa: punto, semilla: 6, aditivo: true });
+  const vapor = crearParticulas({ n: 90, centro: [0, 0.1, 0], caja: [16, 2.2, 5], color: "#6a4a9a", intensidad: 0.55, tam: 2.6, subida: 0.08, deriva: 0.6, mapa: punto, semilla: 6, aditivo: true });
   vapor.position.set(0, 0, -2); esc.add(vapor); A.animados.push(vapor);
+  // bruma baja: una napa de niebla pegada al piso que tapa un poco el horizonte, típica de techo mojado bajo neón
+  const bruma = new THREE.Mesh(new THREE.PlaneGeometry(70, 40), new THREE.ShaderMaterial({
+    uniforms: { uTime: { value: 0 }, uCol: { value: new THREE.Color("#3a2a5a") } }, transparent: true, depthWrite: false, side: THREE.DoubleSide, fog: false,
+    vertexShader: "varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
+    fragmentShader: `varying vec2 vUv; uniform float uTime; uniform vec3 uCol;
+      float h(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
+      float vn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f); return mix(mix(h(i), h(i+vec2(1,0)), f.x), mix(h(i+vec2(0,1)), h(i+vec2(1,1)), f.x), f.y); }
+      void main(){ vec2 p = vUv * vec2(7.0, 4.0) + vec2(uTime * 0.025, uTime * 0.01);
+        float n = vn(p) * 0.55 + vn(p * 2.2 + 4.0) * 0.3 + vn(p * 4.5) * 0.15;
+        float borde = smoothstep(0.0, 0.3, vUv.x) * smoothstep(1.0, 0.7, vUv.x) * smoothstep(0.0, 0.15, vUv.y) * smoothstep(1.0, 0.55, vUv.y);
+        gl_FragColor = vec4(uCol, smoothstep(0.3, 0.75, n) * 0.4 * borde); }`
+  }));
+  bruma.rotation.x = -Math.PI / 2; bruma.position.set(0, 0.35, -20); bruma.renderOrder = 2; esc.add(bruma);
+  A.actualizadores.push(tt => { bruma.material.uniforms.uTime.value = tt; });
 
   ponerLuces(A, { color: "#40d8ff", pos: [[-7.2, 2.4, -3.4], [7.2, 2.4, -3.4]], colores: ["#20e0ff", "#ff2a9a"] });
 }
