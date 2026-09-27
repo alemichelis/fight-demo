@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Juegos · Daxenworld</title>
+<meta name="description" content="Catálogo de juegos de Daxenworld: multijugador, en el navegador, con una sola cuenta para todos.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23120a0a'/%3E%3Cpath d='M6 22 L12 8 L16 16 L20 8 L26 22 Z' fill='%23d8b866'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800;900&family=Oswald:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --oro: #d8b866; --oro2: #8a6a2a; --fondo: #07070b; --panel: #12141c; --linea: #2a2f40; --texto: #dfe6f0; --sub: #8b95a8;
+    --f-tit: "Cinzel", Georgia, serif; --f-cuerpo: "Oswald", "Arial Narrow", sans-serif; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; background: radial-gradient(ellipse at 50% -10%, #201a2c 0%, var(--fondo) 55%, #050508 100%); color: var(--texto); font-family: var(--f-cuerpo); }
+  a { color: inherit; }
+  .cab { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 22px clamp(18px, 5vw, 64px); }
+  .marca { display: flex; align-items: center; gap: 10px; font-family: var(--f-tit); font-weight: 800; letter-spacing: .1em; text-transform: uppercase; font-size: 18px; text-decoration: none; }
+  .marca i { width: 9px; height: 9px; border-radius: 50%; background: var(--oro); box-shadow: 0 0 12px var(--oro); display: inline-block; }
+  .volver { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--sub); text-decoration: none; border: 1px solid var(--linea); padding: 8px 14px; }
+  .volver:hover { color: var(--oro); border-color: var(--oro2); }
+  main { padding: 10px clamp(18px, 5vw, 64px) 80px; max-width: 1200px; margin: 0 auto; }
+  .kicker { font-size: 12px; letter-spacing: .5em; text-transform: uppercase; color: #f2dca0; margin: 0 0 8px; }
+  h1 { font-family: var(--f-tit); font-weight: 900; font-size: clamp(30px, 5vw, 52px); letter-spacing: .04em; text-transform: uppercase; margin: 0 0 10px; color: #f2f5fa; }
+  .lede { color: var(--sub); font-size: 16px; max-width: 640px; line-height: 1.55; margin: 0 0 40px; }
+  .grilla { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 22px; }
+  .carta { position: relative; border: 1px solid var(--linea); background: linear-gradient(180deg, rgba(255,255,255,.02), transparent); overflow: hidden; display: flex; flex-direction: column; }
+  .escena { height: 170px; position: relative; display: flex; align-items: center; justify-content: center; font-size: 54px;
+    background: radial-gradient(circle at 30% 20%, #3a2a18, #120a08 70%); }
+  .escena.cyber { background: radial-gradient(circle at 30% 20%, #2a1046, #070312 70%); }
+  .cuerpo { padding: 20px 22px 22px; display: flex; flex-direction: column; gap: 10px; flex: 1; }
+  .cuerpo h2 { margin: 0; font-family: var(--f-tit); font-size: 20px; letter-spacing: .04em; text-transform: uppercase; color: var(--oro); }
+  .cuerpo p { margin: 0; color: var(--sub); font-size: 14px; line-height: 1.5; flex: 1; }
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tag { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: #cfd6e3; border: 1px solid var(--linea); padding: 3px 9px; }
+  .jugar { margin-top: 6px; align-self: flex-start; background: linear-gradient(180deg, #e9c978, #b58b2f); color: #1a1206; text-decoration: none; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; font-size: 13px; padding: 10px 20px; }
+  .jugar:hover { filter: brightness(1.1); }
+  .carta.pronto { opacity: .55; border-style: dashed; }
+  .carta.pronto .escena { filter: grayscale(1); }
+  .pronto-tag { position: absolute; top: 12px; right: 12px; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: #8b95a8; border: 1px solid var(--linea); padding: 4px 10px; background: rgba(0,0,0,.5); }
+</style>
+</head>
+<body>
+  <header class="cab">
+    <a class="marca" href="/"><i></i>Daxenworld</a>
+    <a class="volver" href="/">← Volver al sitio</a>
+  </header>
+  <main>
+    <p class="kicker">Catálogo</p>
+    <h1>Juegos</h1>
+    <p class="lede">Multijugador, en el navegador, sin instalar nada. Una sola cuenta te sirve para crear tu avatar y jugar a cualquier título de acá.</p>
+    <div class="grilla">
+      <article class="carta">
+        <div class="escena">🗡️</div>
+        <div class="cuerpo">
+          <h2>Reino Caído</h2>
+          <p>Juego de pelea 3D. Creá tu avatar con una selfie (Avaturn), armá un torneo y desafiá a tus amigos: el que gana sigue en pie hasta que alguien lo destrone.</p>
+          <div class="tags"><span class="tag">Multijugador</span><span class="tag">3D</span><span class="tag">Torneos</span></div>
+          <a class="jugar" href="/juegos/reino-caido">Jugar</a>
+        </div>
+      </article>
+      <article class="carta pronto" aria-label="Próximo juego, todavía sin anunciar">
+        <span class="pronto-tag">Próximamente</span>
+        <div class="escena cyber">✦</div>
+        <div class="cuerpo">
+          <h2>Por anunciar</h2>
+          <p>Acá va a aparecer el próximo juego del catálogo.</p>
+        </div>
+      </article>
+    </div>
+  </main>
+</body>
+</html>

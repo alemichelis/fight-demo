@@ -35,11 +35,13 @@ const PRIVADO = new Set(["server.js", "salas.mjs", "api.mjs", "db.mjs", "package
 
 function estatico(req, res, url) {
   let ruta = decodeURIComponent(url.pathname);
-  const enSitio = ruta === "/" || (!ruta.startsWith("/juegos/") && !ruta.startsWith("/src/") && !ruta.startsWith("/node_modules/"));
+  const esJuegos = ruta === "/juegos" || ruta.startsWith("/juegos/");
+  const enSitio = ruta === "/" || (!esJuegos && !ruta.startsWith("/src/") && !ruta.startsWith("/node_modules/"));
   let abs;
   if (enSitio) { abs = path.normalize(path.join(DIR_SITIO, ruta === "/" ? "/index.html" : ruta)); if (!abs.startsWith(DIR_SITIO + path.sep) && abs !== DIR_SITIO) { res.writeHead(403); return res.end("Prohibido"); } }
   else {
-    if (ruta.startsWith("/juegos/") && ruta.split("/").filter(Boolean).length === 2) ruta += "/index.html";   // /juegos/reino-caido → su index.html
+    if (ruta === "/juegos" || ruta === "/juegos/") ruta = "/juegos/index.html";                               // portada del catálogo
+    else if (ruta.startsWith("/juegos/") && ruta.split("/").filter(Boolean).length === 2) ruta += "/index.html";   // /juegos/reino-caido → su index.html
     abs = path.normalize(path.join(RAIZ, ruta));
     if (!abs.startsWith(RAIZ + path.sep) || PRIVADO.has(path.basename(abs))) { res.writeHead(403); return res.end("Prohibido"); }
   }
