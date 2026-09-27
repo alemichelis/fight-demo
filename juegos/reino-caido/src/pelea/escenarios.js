@@ -271,6 +271,19 @@ export function construirCyber(A) {
     if (i % 3 === 0) A.actualizadores.push(tt => { s.material.opacity = 0.7 + 0.3 * Math.sin(tt * 7 + i) * Math.sin(tt * 2.3 + i * 3); });
   });
 
+  /* cartel gigante de TAXI, bien de frente y arriba de todo, como remate del skyline */
+  const txTaxi = letreroTex("TAXI", "#ffe040", 700, 260);
+  const taxi = new THREE.Mesh(new THREE.PlaneGeometry(22, 8.2), new THREE.MeshBasicMaterial({ map: txTaxi, transparent: true, color: new THREE.Color(2.4, 2.4, 2.4), toneMapped: false, depthWrite: false, blending: THREE.AdditiveBlending }));
+  taxi.position.set(-46, 34, -70); taxi.rotation.y = 0.22; esc.add(taxi);
+  caja(esc, 23, 9, 0.3, mTecho, taxi.position.x, taxi.position.y, taxi.position.z - 0.25, { sombra: false, ry: 0.22 });
+  A.actualizadores.push(tt => { taxi.material.opacity = 0.75 + 0.25 * Math.sin(tt * 5); });
+
+  /* cartel gigante con el logo de Jakks, del otro lado del cielo */
+  const texJakks = new THREE.TextureLoader().load("/juegos/reino-caido/assets/models/logo-jakks.png", t => { t.colorSpace = THREE.SRGBColorSpace; });
+  const jakks = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), new THREE.MeshBasicMaterial({ map: texJakks, transparent: true, color: new THREE.Color(2.0, 2.0, 2.0), toneMapped: false, depthWrite: false, blending: THREE.AdditiveBlending }));
+  jakks.position.set(48, 30, -66); jakks.rotation.y = -0.25; esc.add(jakks);
+  A.actualizadores.push(tt => { jakks.material.opacity = 0.8 + 0.2 * Math.sin(tt * 4 + 2); });
+
   /* holograma gigante (shader animado) */
   const holo = new THREE.Mesh(new THREE.PlaneGeometry(16, 26), new THREE.ShaderMaterial({
     uniforms: { uT: { value: 0 } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false,
@@ -302,17 +315,17 @@ export function construirCyber(A) {
   }
   A.actualizadores.push((tt, dt) => { for (const c of coches) { c.g.position.x += c.v * dt; if (c.g.position.x > 130) c.g.position.x = -130; if (c.g.position.x < -130) c.g.position.x = 130; } });
 
-  /* estación monumental de fondo: se ve entre las torres, lejos del plano de pelea */
+  /* estación de fondo: fundida con el piso, cerca y de costado (fuera del pasillo de pelea) para que se note de verdad */
   loadModel("/juegos/reino-caido/assets/models/cyberpunk_station.glb").then(({ scene: estacion }) => {
-    const ESC = 1.1, MINY = -4.83;                    // MINY: punto más bajo del modelo tal cual viene, para apoyarlo en el piso
+    const ESC = 0.62, MINY = -4.83;                   // MINY: punto más bajo del modelo tal cual viene, para apoyarlo en el piso
     estacion.scale.setScalar(ESC);
-    estacion.position.set(-6, -1.25 - MINY * ESC, -78);         // de costado y hacia atrás, para que su lado ancho (103u) quede de frente y no se meta en los edificios cercanos
-    estacion.rotation.y = Math.PI / 2;
+    estacion.position.set(-27, -1.25 - MINY * ESC, -17);         // pegada al piso, a un costado (fuera de los tanques de utilería), cerca de cámara: dentro del foco
+    estacion.rotation.y = 0.5;
     estacion.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; o.frustumCulled = false; } });
     esc.add(estacion); window.__estacionLista = true;
     // un par de luces de color le pegan de lleno, si no queda como una silueta negra contra el neón de atrás
-    const luzC = new THREE.PointLight("#40e0ff", 60, 55, 1.4); luzC.position.set(-14, 14, -18); esc.add(luzC);
-    const luzM = new THREE.PointLight("#ff2a9a", 55, 55, 1.4); luzM.position.set(18, 20, -25); esc.add(luzM);
+    const luzC = new THREE.PointLight("#40e0ff", 45, 34, 1.4); luzC.position.set(-35, 8, -12); esc.add(luzC);
+    const luzM = new THREE.PointLight("#ff2a9a", 40, 34, 1.4); luzM.position.set(-19, 10, -22); esc.add(luzM);
   }).catch(e => console.warn("[cyber] no pude cargar cyberpunk_station.glb:", e.message));
 
   /* utilería de la azotea */
@@ -340,8 +353,10 @@ export function construirCyber(A) {
 
   /* clima: lluvia más cargada, con brillo de neón, y bruma baja pegada al piso */
   const punto = T.texturaPunto();
-  const lluvia = crearParticulas({ n: 2400, centro: [0, 0, 0], caja: [20, 10, 11], color: "#8ab8ff", intensidad: 1.8, tam: 0.05, subida: -14, deriva: 0.18, mapa: punto, semilla: 31 });
+  const lluvia = crearParticulas({ n: 4200, centro: [0, 0, 0], caja: [22, 11, 12], color: "#9ac4ff", intensidad: 2.6, tam: 0.09, subida: -17, deriva: 0.25, mapa: punto, semilla: 31 });
   lluvia.position.z = 1; esc.add(lluvia); A.animados.push(lluvia);
+  const lluviaCerca = crearParticulas({ n: 500, centro: [0, 1, 4], caja: [7, 4, 3], color: "#c8e0ff", intensidad: 3.2, tam: 0.16, subida: -19, deriva: 0.2, mapa: punto, semilla: 42 });
+  esc.add(lluviaCerca); A.animados.push(lluviaCerca);        // gotas grandes cerca de cámara: hacen sentir la lluvia, no sólo verla de lejos
   const vapor = crearParticulas({ n: 90, centro: [0, 0.1, 0], caja: [16, 2.2, 5], color: "#6a4a9a", intensidad: 0.55, tam: 2.6, subida: 0.08, deriva: 0.6, mapa: punto, semilla: 6, aditivo: true });
   vapor.position.set(0, 0, -2); esc.add(vapor); A.animados.push(vapor);
   // bruma baja: una napa de niebla pegada al piso que tapa un poco el horizonte, típica de techo mojado bajo neón
