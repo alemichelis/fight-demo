@@ -70,14 +70,21 @@ export function adjuntarSalas(servidor) {
     const soyHost = () => sala && id === "h";
 
     async function alMensaje(m) {
-      /* ---------------------------------------------- el anfitrión abre la arena de SU torneo */
+      /* ---------------------------------------------- el anfitrión abre la arena de SU torneo (o la retoma si se le cortó la conexión) */
       if (m.t === "crear" && !sala) {
         const u = await usuarioDeToken(m.token); if (!u) return enviar(ws, { t: "error", msg: "Iniciá sesión para abrir la arena." });
         const codigo = String(m.codigo || "").toUpperCase();
         const t = (await q("SELECT * FROM torneos WHERE codigo = ?", [codigo]))[0];
         if (!t || t.creador_id !== u.id) return enviar(ws, { t: "error", msg: "Ese torneo no existe o no es tuyo." });
         if (t.estado === "terminado") return enviar(ws, { t: "error", msg: "Ese torneo ya terminó." });
-        if (salas.has(codigo)) return enviar(ws, { t: "error", msg: "Este torneo ya tiene una arena abierta (¿otra pestaña?)." });
+        const existente = salas.get(codigo);
+        if (existente) {
+          if (existente.host?.readyState === 1) return enviar(ws, { t: "error", msg: "Este torneo ya tiene una arena abierta (¿otra pestaña?)." });
+          clearTimeout(existente.cierrePorDesconexion);                               // llegó a tiempo: se cancela el cierre pendiente
+          existente.host = ws; yo = u; id = "h"; sala = existente;                    // se le cortó la conexión al anfitrión: retoma SU misma sala, sin perder invitados ni pelea en curso
+          enviar(ws, { t: "sala", sala: codigo, id: "h", yo: { id: u.id, nombre: u.nombre } });
+          return anunciar(sala);
+        }
         const av = await avatarDe(u.id, m.avatarId); if (!av) return enviar(ws, { t: "error", msg: "Elegí uno de tus avatares para pelear." });
         const jugadas = (await q("SELECT COUNT(*)::int n FROM peleas WHERE torneo_id = ?", [t.id]))[0].n;
         yo = u; id = "h";
@@ -147,9 +154,16 @@ export function adjuntarSalas(servidor) {
     ws.on("close", () => {
       if (!sala) return;
       if (id === "h") {
-        clearTimeout(sala.timer);
-        for (const c of sala.peers.values()) enviar(c.ws, { t: "cerrada" });
-        salas.delete(sala.codigo); return;
+        if (sala.host !== ws) return;                 // ya lo reemplazó una reconexión más nueva: esta conexión vieja no tira abajo la sala
+        // margen antes de dar al anfitrión por perdido: si el corte fue transitorio (un proxy, un WiFi que titila),
+        // el navegador reconecta solo en un par de segundos y retoma la MISMA sala arriba, sin que nadie note nada
+        sala.cierrePorDesconexion = setTimeout(() => {
+          if (sala.host !== ws) return;                // reconectó mientras esperábamos: no cerrar nada
+          clearTimeout(sala.timer);
+          for (const c of sala.peers.values()) enviar(c.ws, { t: "cerrada" });
+          salas.delete(sala.codigo);
+        }, 12000);
+        return;
       }
       sala.peers.delete(id); enviar(sala.host, { t: "salio", id });
       // si se fue el retador en plena pelea, el anfitrión aborta; si se fue el campeón (no anfitrión) vuelve a ser campeón el anfitrión

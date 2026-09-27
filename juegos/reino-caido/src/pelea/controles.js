@@ -2,8 +2,8 @@
 // pP/pK/pS son «recién apretado este cuadro» (flancos); el luchador les agrega un buffer corto.
 
 const MAPAS = {
-  1: { izq: ["KeyA"], der: ["KeyD"], arriba: ["KeyW"], abajo: ["KeyS"], p: ["KeyF"], k: ["KeyG"], s: ["KeyH"], bloq: ["KeyR", "ShiftLeft"] },
-  2: { izq: ["ArrowLeft"], der: ["ArrowRight"], arriba: ["ArrowUp"], abajo: ["ArrowDown"], p: ["KeyJ"], k: ["KeyK"], s: ["KeyL"], bloq: ["KeyI", "ShiftRight"] }
+  1: { izq: ["KeyA"], der: ["KeyD"], arriba: ["KeyW", "Space"], abajo: ["KeyS"], p: ["KeyF"], k: ["KeyG"], s: ["KeyH"], bloq: ["KeyR", "ShiftLeft"] },
+  2: { izq: ["ArrowLeft"], der: ["ArrowRight"], arriba: ["ArrowUp", "Space"], abajo: ["ArrowDown"], p: ["KeyJ"], k: ["KeyK"], s: ["KeyL"], bloq: ["KeyI", "ShiftRight"] }
 };
 
 export class Controles {
@@ -58,7 +58,7 @@ export class Controles {
 }
 
 export const AYUDA = [
-  ["Mover", "A / D", "← / →"], ["Saltar", "W", "↑"], ["Agacharse", "S", "↓"],
+  ["Mover", "A / D", "← / →"], ["Saltar", "W o Espacio", "↑ o Espacio"], ["Agacharse", "S", "↓"],
   ["Puño", "F", "J"], ["Patada", "G", "K"], ["Especial (proyectil)", "H", "L"], ["Bloquear", "R (o Shift)", "I (o Shift)"],
   ["Gancho", "S + F", "↓ + J"], ["Barrida", "S + G", "↓ + K"], ["Ataque aéreo", "Saltar + F / G", "Saltar + J / K"]
 ];

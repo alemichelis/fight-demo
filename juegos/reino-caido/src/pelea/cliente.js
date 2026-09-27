@@ -30,12 +30,12 @@ export async function iniciarCliente(codigo) {
     <div class="cli">
       <video class="cli-video" autoplay playsinline muted></video>
       <div class="cli-barra">
-        <div class="cli-est"><b class="cli-estado">Conectando a la sala ${esc(codigo)}…</b><span class="cli-cuenta"></span></div>
-        <div class="cli-acc"></div>
+        <div class="cli-est"><b class="cli-estado">Conectando a la sala ${esc(codigo)}…</b></div>
         <button class="cli-mic" hidden>🎤 Micrófono</button>
         <button class="cli-tabla">🏆 Posiciones</button>
         <button class="cli-full">⛶</button>
       </div>
+      <div class="cli-cta" hidden></div>
       <div class="cli-entrar"><div><h2>Sala ${esc(codigo)}</h2><p class="cli-rol"></p><button class="cli-ok">Entrar</button></div></div>
       <div class="cli-panel" hidden></div>
       <div class="cli-ayuda" hidden></div>
@@ -43,6 +43,7 @@ export async function iniciarCliente(codigo) {
   const $ = s => ui.querySelector(s), video = $(".cli-video"), estado = $(".cli-estado");
   const flujo = new MediaStream(); video.srcObject = flujo;
   let dc = null, id = null, pc = null, transAudio = null, mic = null, snap = null, recibido = 0, avatares = [], avatarSel = null, peleando = false;
+  window.__cli = { cerrarWS: () => ws?.close() };            // ayuda para depurar cortes de conexión desde la consola
 
   $(".cli-rol").textContent = yo ? `Entrás como ${yo.nombre}. Cuando termine una pelea vas a poder desafiar al campeón.` : "Estás mirando como invitado.";
   $(".cli-ok").onclick = () => { video.muted = false; video.play().catch(() => {}); $(".cli-entrar").hidden = true; };
@@ -66,31 +67,35 @@ export async function iniciarCliente(codigo) {
   /* ---------------------------------------------------------------- estado del torneo */
   function pintar() {
     if (!snap) return;
-    const acc = $(".cli-acc"), s = snap, cam = s.campeon, yoLuch = !!id && ((cam && cam.ctrl === id) || (s.retador && s.retador.ctrl === id));
+    const cta = $(".cli-cta"), s = snap, cam = s.campeon, yoLuch = !!id && ((cam && cam.ctrl === id) || (s.retador && s.retador.ctrl === id));
     peleando = s.estado === "peleando" && yoLuch;
     const txt = {
       esperando: `Esperando al primer rival · ${esc(cam?.nombre)} en la arena`,
-      ventana: `🏆 ${esc(cam?.nombre)} sigue en pie — ¡entrá a desafiarlo!`,
+      ventana: `🏆 ${esc(cam?.nombre)} sigue en pie`,
       pausa: `Nadie entró a tiempo · campeón: ${esc(cam?.nombre)}`,
       peleando: `${esc(cam?.nombre)} vs ${esc(s.retador?.nombre)}${yoLuch ? " — ¡PELEÁS VOS!" : ""}`,
       fin: "El torneo terminó"
     }[s.estado] || "";
     estado.innerHTML = `${txt} <small>(${s.jugadas}/${s.total})</small>`;
     const abierta = ["esperando", "ventana", "pausa"].includes(s.estado);
+    // el botón grande y centrado: lo que realmente importa se ve de entrada, no escondido en la barra de arriba
     let h = "";
     if (abierta && yo && cam && cam.uid !== yo.id) {
       h = avatares.length
-        ? `<select class="cli-av">${avatares.map(a => `<option value="${a.id}" ${a.id === avatarSel ? "selected" : ""}>${esc(a.nombre)}</option>`).join("")}</select><button class="cli-des">⚔ Desafiar</button>`
-        : `<button class="cli-crear">✚ Crear mi avatar para pelear</button>`;
-    } else if (abierta && !yo) h = `<a class="cli-login" href="/juegos/reino-caido/?t=${esc(codigo)}">Iniciá sesión para desafiar</a>`;
-    else if (abierta && cam && yo && cam.uid === yo.id) h = `<span class="cli-tu">Sos el campeón</span>`;
-    if (acc.dataset.h !== h) {
-      acc.innerHTML = h; acc.dataset.h = h;
-      acc.querySelector(".cli-av")?.addEventListener("change", e => { avatarSel = parseInt(e.target.value, 10); });
-      acc.querySelector(".cli-des")?.addEventListener("click", () => enviar({ t: "desafiar", avatarId: avatarSel }, true));
-      acc.querySelector(".cli-crear")?.addEventListener("click", async () => {
+        ? `<b class="cli-cta-cuenta"></b><p class="cli-cta-txt">¿Te animás contra <b>${esc(cam.nombre)}</b>?</p>
+           <select class="cli-av">${avatares.map(a => `<option value="${a.id}" ${a.id === avatarSel ? "selected" : ""}>${esc(a.nombre)}</option>`).join("")}</select>
+           <button class="cli-des">⚔ DESAFIAR</button>`
+        : `<p class="cli-cta-txt">Para pelear necesitás tu propio avatar.</p><button class="cli-crear">✚ Crear mi avatar</button>`;
+    } else if (abierta && !yo) h = `<p class="cli-cta-txt">Iniciá sesión para desafiar a <b>${esc(cam?.nombre)}</b></p><a class="cli-login" href="/juegos/reino-caido/?t=${esc(codigo)}">Iniciar sesión</a>`;
+    else if (abierta && cam && yo && cam.uid === yo.id) h = `<p class="cli-cta-txt cli-tu">🏆 Sos el campeón — esperá a que alguien te desafíe</p>`;
+    cta.hidden = !h;
+    if (cta.dataset.h !== h) {
+      cta.innerHTML = h; cta.dataset.h = h;
+      cta.querySelector(".cli-av")?.addEventListener("change", e => { avatarSel = parseInt(e.target.value, 10); });
+      cta.querySelector(".cli-des")?.addEventListener("click", () => enviar({ t: "desafiar", avatarId: avatarSel }, true));
+      cta.querySelector(".cli-crear")?.addEventListener("click", async () => {
         const r = await abrirCreadorAvaturn(document.body, { sugerido: yo.nombre.toUpperCase().slice(0, 12) });
-        if (r) { avatares = (await pedir("/api/avatares")).avatares; avatarSel = r.id; acc.dataset.h = ""; pintar(); }
+        if (r) { avatares = (await pedir("/api/avatares")).avatares; avatarSel = r.id; cta.dataset.h = ""; pintar(); }
       });
     }
     const ay = $(".cli-ayuda"); ay.hidden = !peleando;
@@ -104,33 +109,40 @@ export async function iniciarCliente(codigo) {
     p.innerHTML = `<h3>🏆 ${f ? esc(f.nombre) : "Sin campeón"}</h3><p>${f ? `Campeón del torneo con ${f.victorias} victoria${f.victorias === 1 ? "" : "s"}` : "El torneo terminó."}</p><div class="mn-tabla">` +
       (s.tabla || []).map((x, i) => `<div class="mn-fila"><span>${i + 1}. ${esc(x.nombre)}</span><em>${x.victorias}V</em><em>${x.derrotas}D</em></div>`).join("") + `</div><p><a href="/">Volver al menú</a></p>`;
   }
-  setInterval(() => { $(".cli-cuenta").textContent = snap?.estado === "ventana" ? mmss(snap.restanteMs - (performance.now() - recibido)) : ""; }, 250);
+  setInterval(() => { const c = $(".cli-cta-cuenta"); if (c) c.textContent = snap?.estado === "ventana" ? mmss(snap.restanteMs - (performance.now() - recibido)) : ""; }, 250);
 
-  /* ---------------------------------------------------------------- conexión */
-  let ws;
-  try { ws = await abrirSenalizacion(); } catch (e) { estado.textContent = e.message; return; }
-  const enviar = (o, viaWS) => { if (viaWS) ws.send(JSON.stringify(o)); else if (dc?.readyState === "open") dc.send(JSON.stringify(o)); };
-  ws.onclose = () => { estado.textContent = "Se cortó la conexión con la sala."; };
-  ws.onmessage = async ev => {
-    const m = JSON.parse(ev.data);
-    if (m.t === "error") estado.textContent = m.msg;
-    else if (m.t === "cerrada") { estado.textContent = "El anfitrión cerró la arena."; pc?.close(); }
-    else if (m.t === "unido") { id = m.id; estado.textContent = "Conectado — esperando video…"; }
-    else if (m.t === "estado" || m.t === "fin") { snap = m; recibido = performance.now(); pintar(); }
-    else if (m.t === "de") {
-      if (m.datos.sdp) {
-        pc = new RTCPeerConnection(ICE);
-        pc.onicecandidate = e => { if (e.candidate) ws.send(JSON.stringify({ t: "para", a: "h", datos: { ice: e.candidate } })); };
-        pc.ontrack = e => { flujo.addTrack(e.track); if (e.track.kind === "audio") transAudio = e.transceiver; video.play().catch(() => {}); };
-        pc.ondatachannel = e => { dc = e.channel; };
-        pc.onconnectionstatechange = () => { if (pc.connectionState === "failed") estado.textContent = "No se pudo establecer el video (¿firewall o red restringida?)."; };
-        await pc.setRemoteDescription(m.datos.sdp);
-        await pc.setLocalDescription(await pc.createAnswer());
-        ws.send(JSON.stringify({ t: "para", a: "h", datos: { sdp: pc.localDescription } }));
-      } else if (m.datos.ice && pc) try { await pc.addIceCandidate(m.datos.ice); } catch (e) { /* tardío */ }
-    }
+  /* ---------------------------------------------------------------- conexión (con reconexión automática: algunos hostings
+     cortan solos una conexión inactiva; sin esto, un botón podía quedar «muerto» hasta recargar la página) */
+  let ws, cerradaDefinitiva = false;
+  const enviar = (o, viaWS) => {
+    try { if (viaWS) ws?.send(JSON.stringify(o)); else if (dc?.readyState === "open") dc.send(JSON.stringify(o)); }
+    catch (e) { /* la conexión se cortó justo ahora: la reconexión de abajo la retoma sola */ }
   };
-  ws.send(JSON.stringify({ t: "unir", sala: codigo, token: token() }));
+  async function conectar(intento = 1) {
+    try { ws = await abrirSenalizacion(); } catch (e) { estado.textContent = e.message; return; }
+    ws.onclose = () => { if (!cerradaDefinitiva) { estado.textContent = "Se cortó la conexión: reconectando…"; setTimeout(() => conectar(intento + 1), Math.min(1000 * intento, 8000)); } };
+    ws.onmessage = async ev => {
+      const m = JSON.parse(ev.data);
+      if (m.t === "error") estado.textContent = m.msg;
+      else if (m.t === "cerrada") { cerradaDefinitiva = true; estado.textContent = "El anfitrión cerró la arena."; pc?.close(); }
+      else if (m.t === "unido") { id = m.id; if (!snap) estado.textContent = "Conectado — esperando video…"; }
+      else if (m.t === "estado" || m.t === "fin") { snap = m; recibido = performance.now(); pintar(); }
+      else if (m.t === "de") {
+        if (m.datos.sdp) {
+          pc = new RTCPeerConnection(ICE);
+          pc.onicecandidate = e => { if (e.candidate) enviar({ t: "para", a: "h", datos: { ice: e.candidate } }, true); };
+          pc.ontrack = e => { flujo.addTrack(e.track); if (e.track.kind === "audio") transAudio = e.transceiver; video.play().catch(() => {}); };
+          pc.ondatachannel = e => { dc = e.channel; };
+          pc.onconnectionstatechange = () => { if (pc.connectionState === "failed") estado.textContent = "No se pudo establecer el video (¿firewall o red restringida?)."; };
+          await pc.setRemoteDescription(m.datos.sdp);
+          await pc.setLocalDescription(await pc.createAnswer());
+          enviar({ t: "para", a: "h", datos: { sdp: pc.localDescription } }, true);
+        } else if (m.datos.ice && pc) try { await pc.addIceCandidate(m.datos.ice); } catch (e) { /* tardío */ }
+      }
+    };
+    enviar({ t: "unir", sala: codigo, token: token() }, true);
+  }
+  await conectar();
 
   /* ---------------------------------------------------------------- teclas y micrófono (sólo si peleo) */
   const modal = () => document.querySelector(".modal-av");

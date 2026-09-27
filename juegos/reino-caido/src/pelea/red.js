@@ -29,14 +29,30 @@ export class SalaAnfitrion {
 
   links() { const b = `${location.origin}/juegos/reino-caido/?t=${this.codigo}`; return { unirse: b }; }
 
+  /** Primera vez que se abre la sala. Si el WebSocket se corta después (algunos hostings cierran conexiones inactivas), se
+   * reconecta solo y retoma la MISMA sala en el servidor, sin perder invitados conectados ni la pelea en curso. */
   async crear(token, codigo, avatarId) {
+    this._token = token; this._pedido = { codigo, avatarId };
+    return this._abrir();
+  }
+  async _abrir() {
     this.ws = await abrirSenalizacion();
     this.ws.onmessage = e => this._msg(JSON.parse(e.data));
-    this.ws.onclose = () => { this.ws = null; if (this.codigo) { this.codigo = null; this.err = "Se cortó la conexión con el servidor."; this._avisar(); } };
-    return new Promise((ok, mal) => { this._alCrear = { ok, mal }; this.ws.send(JSON.stringify({ t: "crear", token, codigo, avatarId })); });
+    this.ws.onclose = () => { this.ws = null; if (this._pedido) this._reconectar(); };
+    this._creando = true;
+    const p = new Promise((ok, mal) => { this._alCrear = { ok: r => { this._creando = false; ok(r); }, mal: e => { this._creando = false; mal(e); } }; });
+    this.ws.send(JSON.stringify({ t: "crear", token: this._token, ...this._pedido }));
+    return p;
+  }
+  async _reconectar(intento = 1) {
+    this.err = "Se cortó la conexión con el servidor: reconectando…"; this._avisar();
+    await new Promise(r => setTimeout(r, Math.min(1000 * intento, 8000)));
+    if (!this._pedido) return;                          // se cerró la sala mientras esperaba (cerrar() ya limpió _pedido)
+    try { await this._abrir(); this.err = ""; this._avisar(); }
+    catch (e) { this._reconectar(intento + 1); }
   }
   enviar(o) { if (this.ws?.readyState === 1) this.ws.send(JSON.stringify(o)); }
-  cerrar() { for (const p of this.peers.values()) try { p.pc.close(); } catch (e) { /* */ } this.peers.clear(); this.codigo = null; this.ws?.close(); this.ws = null; }
+  cerrar() { this._pedido = null; for (const p of this.peers.values()) try { p.pc.close(); } catch (e) { /* */ } this.peers.clear(); this.codigo = null; this.ws?.close(); this.ws = null; }
 
   /* ------------------------------------------------------------ audio */
   _audio() {
@@ -86,7 +102,7 @@ export class SalaAnfitrion {
   /* ------------------------------------------------------------ mensajes del servidor */
   async _msg(m) {
     if (m.t === "sala") { this.codigo = m.sala; this.yo = m.yo; this._alCrear?.ok(m); }
-    else if (m.t === "error") { if (!this.codigo) this._alCrear?.mal(new Error(m.msg)); else { this.err = m.msg; this._avisar(); } }
+    else if (m.t === "error") { if (this._creando) this._alCrear?.mal(new Error(m.msg)); else { this.err = m.msg; this._avisar(); } }
     else if (m.t === "estado") { this.snap = m; this.on.estado?.(m); this._avisar(); }
     else if (m.t === "fin") { this.snap = m; this.on.fin?.(m); this._avisar(); }
     else if (m.t === "pelea") this.on.pelea?.(m.campeon, m.retador);

@@ -21,7 +21,7 @@ export const ACCIONES = {
 /** Animaciones de pelea (Mixamo FBX en assets/fight-moves): acción de juego → archivo. Reemplazan al préstamo de zombis. */
 const FM = "/juegos/reino-caido/assets/fight-moves/";
 export const FIGHT = Object.fromEntries(Object.entries({
-  idle: "Fighting Idle", intro: "Bouncing Fight Idle (2)", crouch: "Ducking", punch: "Cross Punch", kick: "Mma Kick (2)",
+  idle: "Fighting Idle", walk: "Crouched Walking", back: "Crouched Walking", intro: "Bouncing Fight Idle (2)", crouch: "Ducking", punch: "Cross Punch", kick: "Mma Kick (2)",
   uppercut: "Elbow Punching", sweep: "Mma Kick (4)", airkick: "Flying Bicycle Kick (1)", special: "Fireball (1)",
   knockdown: "Dying Backwards", ko: "Dying Backwards", getup: "Getting Up", win: "Cheering"
 }).map(([k, v]) => [k, encodeURI(`${FM}${v}.fbx`)]));
