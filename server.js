@@ -1,8 +1,13 @@
-// Servidor de Reino Caído: sirve el juego, guarda los personajes de Avaturn (POST /api/upload) y hace de
-// señalizador de las salas online (WebSocket en /ws, ver salas.mjs). Sin base de datos.
+// Servidor del portal Daxenworld: sirve el sitio en «/» y, bajo /juegos/<nombre>, cada juego (por ahora sólo Reino Caído).
+// La API de cuentas/avatares/torneos (/api) y las salas en vivo (WebSocket en /ws, ver salas.mjs) son compartidas por
+// todos los juegos: una sola cuenta sirve para jugar a cualquiera del catálogo.
 //
 //   node server.js                 → http://localhost:5173
-//   PORT=8080 node server.js       (los hostings tipo Render/Railway/Fly/Heroku ya ponen PORT solos)
+//   PORT=8080 node server.js       (Hostinger y demás hostings ya ponen PORT solos)
+//
+// Para sumar un juego nuevo: una carpeta en juegos/<id>/ con su propio index.html, y listo — este servidor la
+// encuentra sola. Si el juego usa three.js u otra librería ya presente en /node_modules, no hace falta reinstalarla:
+// ese import map absoluto («/node_modules/…») se resuelve siempre desde la raíz, sea cual sea la página que lo pide.
 
 import http from "node:http";
 import fs from "node:fs";
@@ -24,13 +29,20 @@ const MIME = {
 };
 const json = (res, code, obj) => { res.writeHead(code, { "Content-Type": MIME[".json"], "Cache-Control": "no-store" }); res.end(JSON.stringify(obj)); };
 
+// El sitio vive en /sitio pero se sirve en la raíz; cada juego vive en /juegos/<id> y se sirve tal cual (misma ruta).
+const DIR_SITIO = path.join(RAIZ, "sitio");
+const PRIVADO = new Set(["server.js", "salas.mjs", "api.mjs", "db.mjs", "package.json", "package-lock.json", ".env", ".env.local"]);
+
 function estatico(req, res, url) {
   let ruta = decodeURIComponent(url.pathname);
-  if (ruta === "/") ruta = "/index.html";
-  else if (ruta === "/pelea.html") ruta = "/index.html";          // compatibilidad con los links viejos
-  const abs = path.normalize(path.join(RAIZ, ruta));
-  const privado = ["server.js", "salas.mjs", "api.mjs", "db.mjs", "package.json", "package-lock.json"].map(f => path.join(RAIZ, f));
-  if (!abs.startsWith(RAIZ + path.sep) || privado.includes(abs)) { res.writeHead(403); return res.end("Prohibido"); }
+  const enSitio = ruta === "/" || (!ruta.startsWith("/juegos/") && !ruta.startsWith("/src/") && !ruta.startsWith("/node_modules/"));
+  let abs;
+  if (enSitio) { abs = path.normalize(path.join(DIR_SITIO, ruta === "/" ? "/index.html" : ruta)); if (!abs.startsWith(DIR_SITIO + path.sep) && abs !== DIR_SITIO) { res.writeHead(403); return res.end("Prohibido"); } }
+  else {
+    if (ruta.startsWith("/juegos/") && ruta.split("/").filter(Boolean).length === 2) ruta += "/index.html";   // /juegos/reino-caido → su index.html
+    abs = path.normalize(path.join(RAIZ, ruta));
+    if (!abs.startsWith(RAIZ + path.sep) || PRIVADO.has(path.basename(abs))) { res.writeHead(403); return res.end("Prohibido"); }
+  }
   fs.stat(abs, (err, st) => {
     if (err || !st.isFile()) { res.writeHead(404); return res.end("No encontrado"); }
     const ext = path.extname(abs).toLowerCase();
@@ -60,6 +72,6 @@ const servidor = http.createServer(async (req, res) => {
   }
 });
 adjuntarSalas(servidor);
-servidor.listen(PUERTO, () => console.log(`\n  REINO CAÍDO  →  http://localhost:${PUERTO}\n`));
+servidor.listen(PUERTO, () => console.log(`\n  DAXENWORLD  →  http://localhost:${PUERTO}   (juego: /juegos/reino-caido)\n`));
 iniciarDB().then(() => { dbLista = true; console.log("  Base de datos lista."); })
-  .catch(e => { dbError = e.message; console.error("  ✗ No pude conectar con MySQL:", e.message, "\n    Revisá DB_HOST / DB_USER / DB_PASSWORD / DB_NAME."); });
+  .catch(e => { dbError = e.message; console.error("  ✗ No pude conectar con la base de datos:", e.message, "\n    Revisá DB_HOST / DB_USER / DB_PASSWORD / DB_NAME."); });

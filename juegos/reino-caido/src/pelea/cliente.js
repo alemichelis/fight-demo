@@ -82,7 +82,7 @@ export async function iniciarCliente(codigo) {
       h = avatares.length
         ? `<select class="cli-av">${avatares.map(a => `<option value="${a.id}" ${a.id === avatarSel ? "selected" : ""}>${esc(a.nombre)}</option>`).join("")}</select><button class="cli-des">⚔ Desafiar</button>`
         : `<button class="cli-crear">✚ Crear mi avatar para pelear</button>`;
-    } else if (abierta && !yo) h = `<a class="cli-login" href="/?t=${esc(codigo)}">Iniciá sesión para desafiar</a>`;
+    } else if (abierta && !yo) h = `<a class="cli-login" href="/juegos/reino-caido/?t=${esc(codigo)}">Iniciá sesión para desafiar</a>`;
     else if (abierta && cam && yo && cam.uid === yo.id) h = `<span class="cli-tu">Sos el campeón</span>`;
     if (acc.dataset.h !== h) {
       acc.innerHTML = h; acc.dataset.h = h;

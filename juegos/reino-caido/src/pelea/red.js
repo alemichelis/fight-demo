@@ -27,7 +27,7 @@ export class SalaAnfitrion {
   }
   _avisar() { this.on.cambio?.(); }
 
-  links() { const b = `${location.origin}/?t=${this.codigo}`; return { unirse: b }; }
+  links() { const b = `${location.origin}/juegos/reino-caido/?t=${this.codigo}`; return { unirse: b }; }
 
   async crear(token, codigo, avatarId) {
     this.ws = await abrirSenalizacion();

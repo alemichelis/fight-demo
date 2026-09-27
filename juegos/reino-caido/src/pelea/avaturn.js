@@ -12,7 +12,7 @@ export function defAvatar({ avatarId, jugador, avatar }, slot = 0) {
   return {
     id: `av${avatarId}`, nombre: String(jugador || "JUGADOR").toUpperCase().slice(0, 12), titulo: String(avatar || "Avaturn"), color: COLORES[slot % COLORES.length],
     modelo: `/api/avatar/${avatarId}.glb`,
-    anims: [{ url: ZOMBIE_ANIMS, modo: "retarget" }, { url: "/assets/models/avatar-moves.glb", modo: "propio" }],
+    anims: [{ url: ZOMBIE_ANIMS, modo: "retarget" }, { url: "/juegos/reino-caido/assets/models/avatar-moves.glb", modo: "propio" }],
     retarget: true, fbx: FIGHT, altura: 1.75, custom: true
   };
 }

@@ -1,14 +1,14 @@
 // Plantel de la pelea: qué modelos hay, cómo se cargan, cómo se les prestan animaciones y cómo se sacan los retratos.
 //
 // Todo lo que decide «qué clip usa cada acción» está en ACCIONES (por defecto) y en `def.acciones` (por personaje).
-// Cuando lleguen los FBX de pelea: ponerlos en assets/pelea/ y declararlos en `def.fbx = { punch: "/assets/pelea/x.fbx", ... }`;
+// Cuando lleguen los FBX de pelea: ponerlos en assets/pelea/ y declararlos en `def.fbx = { punch: "/juegos/reino-caido/assets/pelea/x.fbx", ... }`;
 // cada uno se re-apunta al esqueleto del personaje por nombre de hueso (no importa el prefijo mixamorig) y reemplaza al préstamo.
 
 import * as THREE from "three";
 import { retargetClip } from "three/addons/utils/SkeletonUtils.js";
-import { loadModel } from "../core/assets.js";
+import { loadModel } from "/src/core/assets.js";
 
-export const ZOMBIE_ANIMS = "/assets/zombies/zombie-anims.glb";
+export const ZOMBIE_ANIMS = "/juegos/reino-caido/assets/zombies/zombie-anims.glb";
 
 /** acción de juego → nombre de clip. `null` = sin clip: la pose la resuelve el código (inclinación, retroceso…). */
 export const ACCIONES = {
@@ -19,7 +19,7 @@ export const ACCIONES = {
 };
 
 /** Animaciones de pelea (Mixamo FBX en assets/fight-moves): acción de juego → archivo. Reemplazan al préstamo de zombis. */
-const FM = "/assets/fight-moves/";
+const FM = "/juegos/reino-caido/assets/fight-moves/";
 export const FIGHT = Object.fromEntries(Object.entries({
   idle: "Fighting Idle", intro: "Bouncing Fight Idle (2)", crouch: "Ducking", punch: "Cross Punch", kick: "Mma Kick (2)",
   uppercut: "Elbow Punching", sweep: "Mma Kick (4)", airkick: "Flying Bicycle Kick (1)", special: "Fireball (1)",

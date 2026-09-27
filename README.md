@@ -1,12 +1,29 @@
-# Reino Caído — torneos de pelea entre amigos
+# Daxenworld — portal con Reino Caído
 
-Juego de pelea 3D en el navegador (Three.js). Cada jugador crea su avatar con una selfie (Avaturn), un anfitrión abre un torneo,
-los amigos entran por link, se desafían de a uno y todo queda en una tabla de posiciones guardada en MySQL.
+Este repo sirve dos cosas con **un solo servidor Node**:
+- **`/`** → el sitio de Daxenworld (`sitio/`, estático).
+- **`/juegos/reino-caido`** → el primer juego del catálogo: un juego de pelea 3D (Three.js) donde cada jugador crea su
+  avatar con una selfie (Avaturn), un anfitrión abre un torneo y sus amigos entran por link a desafiarse.
 
-## Cómo se juega
-1. Cada uno entra con **usuario y clave** (se registra en la pantalla de acceso) y crea su avatar (botón «Crear avatar»).
+La **cuenta de usuario es del portal**, no del juego: un mismo login (`/api`) sirve para crear avatares y jugar
+cualquier juego que se sume después. Todo queda guardado en una sola base Postgres (Supabase).
+
+```
+sitio/                el sitio (estático)
+juegos/reino-caido/   este juego (index.html, css/, src/pelea/, assets/)
+juegos/<otro>/        el próximo juego que se agregue — misma idea
+src/core/             compartido entre juegos (por ahora, el cargador de modelos 3D)
+server.js, api.mjs, db.mjs, salas.mjs    el servidor: sitio + juegos + cuentas + salas en vivo
+```
+
+Para sumar un juego nuevo: una carpeta en `juegos/<id>/` con su propio `index.html`. El servidor la sirve sola, sin
+tocar nada más — y si usa `three.js` (u otra librería ya en `/node_modules`), no hace falta reinstalarla: los imports
+absolutos (`/node_modules/…`) se resuelven siempre desde la raíz.
+
+## Reino Caído: cómo se juega
+1. Cada uno entra con **usuario y clave** (se registra en la pantalla de acceso, `/juegos/reino-caido/`) y crea su avatar (botón «Crear avatar»).
 2. Un jugador **crea el torneo** (nombre + cantidad de peleas) y se convierte en el **anfitrión**: su PC corre el juego y lo transmite.
-3. El anfitrión toca **«Transmitir»**, comparte la pestaña y le pasa el link a sus amigos (`/?t=CODIGO`).
+3. El anfitrión toca **«Transmitir»**, comparte la pestaña y le pasa el link a sus amigos (`/juegos/reino-caido/?t=CODIGO`).
 4. Los amigos abren el link, ven la pelea en vivo y, cuando hay una **ventana de 1 minuto**, eligen su avatar y **desafían**. El primero en tocar pelea.
 5. El que gana **sigue en pie**; se abre otra ventana de 1 minuto para el siguiente rival. Si nadie entra, el anfitrión decide esperar otro minuto o terminar.
 6. Al llegar a la cantidad de peleas (o si el anfitrión termina antes) se anuncia el **campeón**: quien tenga más victorias.
@@ -22,20 +39,26 @@ La primera vez que se elige un escenario se construye (unos segundos) y después
 
 ## Qué necesita el hosting
 - **Node 18 o más nuevo** (no sirve un hosting estático: hay WebSocket y API).
-- **Una base MySQL/MariaDB**. Las tablas se crean solas al arrancar.
+- **Una base Postgres** (el proyecto usa [Supabase](https://supabase.com), gratis para este uso). Las tablas se crean solas al arrancar.
 - **HTTPS** (para los micrófonos).
+
+### Base de datos (Supabase)
+1. Creá un proyecto en https://supabase.com (es gratis).
+2. Andá a **Project Settings → Database → Connection string**, pestaña **URI**, y copiala. Se ve así:
+   `postgresql://postgres:TU-CLAVE@db.xxxxxxxxxxxx.supabase.co:5432/postgres`
+3. Esa URL completa es la variable `DATABASE_URL`. Es lo único que hace falta para la base.
 
 ### Variables de entorno
 | Variable | Para qué |
 |---|---|
-| `DB_HOST` | Servidor MySQL (en Hostinger suele ser `localhost`; mirá hPanel → Bases de datos) |
-| `DB_PORT` | Puerto (3306 por defecto) |
-| `DB_USER`, `DB_PASSWORD`, `DB_NAME` | Credenciales y nombre de la base |
-| `DATABASE_URL` | Alternativa a las cuatro anteriores: `mysql://usuario:clave@host:3306/base` |
+| `DATABASE_URL` | La cadena de conexión de Supabase (ver arriba) |
+| `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` | Alternativa si no tenés la URL completa, sino los datos sueltos (puerto 5432 por defecto) |
 | `AVATURN_SUBDOMAIN` | Subdominio de tu cuenta de Avaturn (por defecto `musicverse`) |
 | `PORT` | Lo pone el hosting solo |
 
 Comando de inicio: `npm start` (equivale a `node server.js`). Comprobación: `/salud` responde `ok` cuando la base está conectada.
+El dominio se conecta entero a esta app (no hace falta subdominio aparte): `daxenworld.com` sirve el sitio y
+`daxenworld.com/juegos/reino-caido` el juego.
 
 ### Más adelante (opcional): login con Google
 Por ahora sólo se entra con usuario y clave. El login con Google ya está programado pero apagado: si algún día lo querés, poné la variable `GOOGLE_CLIENT_ID` y aparece el botón solo.
@@ -47,12 +70,13 @@ Por ahora sólo se entra con usuario y clave. El login con Google ya está progr
 ## Probar en tu PC
 ```
 npm install
-DB_USER=root DB_NAME=reino_caido node server.js       # o guardá las variables en .env.local y usá: node --env-file=.env.local server.js
+echo DATABASE_URL=postgresql://postgres:TU-CLAVE@db.xxxxxxxxxxxx.supabase.co:5432/postgres > .env.local
+node --env-file=.env.local server.js
 ```
-Abrí http://localhost:5173. La base tiene que existir (`CREATE DATABASE reino_caido CHARACTER SET utf8mb4;`).
+Abrí http://localhost:5173.
 
 ## Cosas a tener en cuenta
-- **Los avatares (GLB de 5–15 MB) se guardan en la base** (LONGBLOB), así sobreviven a los redeploys del hosting. Si tu MySQL tiene `max_allowed_packet` bajo (<16 MB), subilo. Máximo 5 avatares por cuenta.
+- **Los avatares (GLB de 5–15 MB) se guardan en la base** (columna `BYTEA`), así sobreviven a los redeploys del hosting. Máximo 5 avatares por cuenta.
 - **El anfitrión aguanta el peso**: su PC corre el juego y sube video a cada amigo (~2–3 Mbps por persona). El servidor limita la sala a 14 conectados.
 - **Trampa**: el anfitrión informa el resultado de cada pelea; se confía en él (es un juego entre amigos).
 - Para conexiones entre redes muy restrictivas haría falta un servidor TURN propio (se usan STUN públicos de Google).

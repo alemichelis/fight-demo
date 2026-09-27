@@ -3,7 +3,7 @@
 // El navegador del ANFITRIÓN corre el juego y lo transmite por WebRTC; el servidor sólo:
 //   · hace de señalizador WebRTC (ofertas/candidatos),
 //   · decide quién es campeón / retador y abre la ventana de 1 minuto entre peleas,
-//   · guarda cada resultado y cierra el torneo en MySQL.
+//   · guarda cada resultado y cierra el torneo en la base.
 //
 // Estados: esperando (aún no hubo peleas) → peleando → ventana (60 s para que entre un retador) → pausa (nadie entró)
 //          → peleando … → fin (se llegó al número de peleas, o el anfitrión lo terminó).
@@ -79,7 +79,7 @@ export function adjuntarSalas(servidor) {
         if (t.estado === "terminado") return enviar(ws, { t: "error", msg: "Ese torneo ya terminó." });
         if (salas.has(codigo)) return enviar(ws, { t: "error", msg: "Este torneo ya tiene una arena abierta (¿otra pestaña?)." });
         const av = await avatarDe(u.id, m.avatarId); if (!av) return enviar(ws, { t: "error", msg: "Elegí uno de tus avatares para pelear." });
-        const jugadas = (await q("SELECT COUNT(*) n FROM peleas WHERE torneo_id = ?", [t.id]))[0].n;
+        const jugadas = (await q("SELECT COUNT(*)::int n FROM peleas WHERE torneo_id = ?", [t.id]))[0].n;
         yo = u; id = "h";
         sala = { codigo, torneoId: t.id, nombre: t.nombre, total: t.total_peleas, jugadas, host: ws, hostUid: u.id, hostNombre: u.nombre, peers: new Map(),
           estado: "esperando", campeon: luchador(u.id, u.nombre, av, "h"), retador: null, ventanaHasta: 0, timer: null };

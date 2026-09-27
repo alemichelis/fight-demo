@@ -38,7 +38,7 @@ function claveOk(clave, guardada) {
 
 async function abrirSesion(usuarioId) {
   const token = crypto.randomBytes(32).toString("hex");
-  await q("INSERT INTO sesiones (token_hash, usuario_id, expira) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL ? DAY))", [sha(token), usuarioId, DIAS_SESION]);
+  await q("INSERT INTO sesiones (token_hash, usuario_id, expira) VALUES (?, ?, NOW() + make_interval(days => ?::int))", [sha(token), usuarioId, DIAS_SESION]);
   return token;
 }
 export async function usuarioDeToken(token) {
@@ -76,9 +76,9 @@ export async function api(req, res, url) {
       if (!/^[A-Za-z0-9_]{3,20}$/.test(usuario)) return fallo(res, 400, "El usuario debe tener 3 a 20 letras, números o _");
       if (clave.length < 6) return fallo(res, 400, "La clave debe tener al menos 6 caracteres");
       if ((await q("SELECT id FROM usuarios WHERE usuario = ?", [usuario])).length) return fallo(res, 409, "Ese usuario ya existe");
-      const r = await q("INSERT INTO usuarios (usuario, nombre, clave_hash) VALUES (?, ?, ?)", [usuario, usuario, hashClave(clave)]);
-      const token = await abrirSesion(r.insertId);
-      return json(res, 200, { ok: true, token, usuario: perfil({ id: r.insertId, nombre: usuario, usuario, email: null, foto: null }) });
+      const [{ id }] = await q("INSERT INTO usuarios (usuario, nombre, clave_hash) VALUES (?, ?, ?) RETURNING id", [usuario, usuario, hashClave(clave)]);
+      const token = await abrirSesion(id);
+      return json(res, 200, { ok: true, token, usuario: perfil({ id, nombre: usuario, usuario, email: null, foto: null }) });
     }
     if (p[0] === "login" && m === "POST") {
       if (frenar(req)) return fallo(res, 429, "Demasiados intentos, esperá un minuto");
@@ -93,7 +93,7 @@ export async function api(req, res, url) {
       const g = await verificarGoogle(String((await cuerpoJSON(req)).credential || ""));
       let f = (await q("SELECT * FROM usuarios WHERE google_sub = ? OR email = ?", [g.sub, g.email]))[0];
       const nombre = String(g.given_name || g.name || g.email.split("@")[0]).slice(0, 40);
-      if (!f) { const r = await q("INSERT INTO usuarios (nombre, email, google_sub, foto) VALUES (?, ?, ?, ?)", [nombre, g.email, g.sub, g.picture || null]); f = { id: r.insertId, nombre, usuario: null, email: g.email, foto: g.picture || null }; }
+      if (!f) { const [{ id }] = await q("INSERT INTO usuarios (nombre, email, google_sub, foto) VALUES (?, ?, ?, ?) RETURNING id", [nombre, g.email, g.sub, g.picture || null]); f = { id, nombre, usuario: null, email: g.email, foto: g.picture || null }; }
       else if (!f.google_sub) await q("UPDATE usuarios SET google_sub = ?, foto = COALESCE(foto, ?) WHERE id = ?", [g.sub, g.picture || null, f.id]);
       return json(res, 200, { ok: true, token: await abrirSesion(f.id), usuario: perfil(f) });
     }
@@ -112,14 +112,14 @@ export async function api(req, res, url) {
       if (!t) return fallo(res, 404, "No existe ese torneo");
       const peleas = await q(`SELECT p.id, p.creado, g.nombre AS ganador, l.nombre AS perdedor, p.rondas_ganador, p.rondas_perdedor
         FROM peleas p JOIN usuarios g ON g.id = p.ganador_id JOIN usuarios l ON l.id = p.perdedor_id WHERE p.torneo_id = ? ORDER BY p.id DESC LIMIT 15`, [t.id]);
-      const jugadas = (await q("SELECT COUNT(*) n FROM peleas WHERE torneo_id = ?", [t.id]))[0].n;
+      const jugadas = (await q("SELECT COUNT(*)::int n FROM peleas WHERE torneo_id = ?", [t.id]))[0].n;
       const tabla = await tablaTorneo(t.id);
       return json(res, 200, { ok: true, torneo: { codigo: t.codigo, nombre: t.nombre, creador: t.creador, total: t.total_peleas, jugadas, estado: t.estado, campeon: t.campeon_id ? tabla.find(x => x.id === t.campeon_id)?.nombre || null : null }, tabla, peleas });
     }
     if (p[0] === "ranking" && m === "GET") {
       return json(res, 200, { ok: true, ranking: await q(`
-        SELECT u.id, u.nombre, u.foto, SUM(p.ganador_id = u.id) AS victorias, SUM(p.perdedor_id = u.id) AS derrotas,
-               (SELECT COUNT(*) FROM torneos t WHERE t.campeon_id = u.id) AS titulos
+        SELECT u.id, u.nombre, u.foto, SUM((p.ganador_id = u.id)::int) AS victorias, SUM((p.perdedor_id = u.id)::int) AS derrotas,
+               (SELECT COUNT(*)::int FROM torneos t WHERE t.campeon_id = u.id) AS titulos
         FROM usuarios u JOIN peleas p ON u.id IN (p.ganador_id, p.perdedor_id)
         GROUP BY u.id, u.nombre, u.foto ORDER BY victorias DESC, derrotas ASC LIMIT 50`) });
     }
@@ -133,11 +133,11 @@ export async function api(req, res, url) {
       if (m === "GET") return json(res, 200, { ok: true, avatares: await q("SELECT id, nombre, tam FROM avatares WHERE usuario_id = ? ORDER BY id", [yo.id]), max: MAX_AVATARES });
       if (m === "POST") {
         const nombre = String(url.searchParams.get("nombre") || "HEROE").replace(/[^\p{L}\p{N} _-]/gu, "").trim().slice(0, 12).toUpperCase() || "HEROE";
-        if ((await q("SELECT COUNT(*) n FROM avatares WHERE usuario_id = ?", [yo.id]))[0].n >= MAX_AVATARES) return fallo(res, 400, `Ya tenés ${MAX_AVATARES} avatares: borrá alguno para crear otro`);
+        if ((await q("SELECT COUNT(*)::int n FROM avatares WHERE usuario_id = ?", [yo.id]))[0].n >= MAX_AVATARES) return fallo(res, 400, `Ya tenés ${MAX_AVATARES} avatares: borrá alguno para crear otro`);
         const datos = await cuerpo(req, LIMITE_GLB);
         if (datos.length < 12 || datos.toString("latin1", 0, 4) !== "glTF") return fallo(res, 400, "No es un GLB válido");
-        const r = await q("INSERT INTO avatares (usuario_id, nombre, glb, tam) VALUES (?, ?, ?, ?)", [yo.id, nombre, datos, datos.length]);
-        return json(res, 200, { ok: true, id: r.insertId, nombre });
+        const [{ id }] = await q("INSERT INTO avatares (usuario_id, nombre, glb, tam) VALUES (?, ?, ?, ?) RETURNING id", [yo.id, nombre, datos, datos.length]);
+        return json(res, 200, { ok: true, id, nombre });
       }
       if (m === "DELETE" && p[1]) { await q("DELETE FROM avatares WHERE id = ? AND usuario_id = ?", [parseInt(p[1], 10), yo.id]); return json(res, 200, { ok: true }); }
     }
@@ -148,13 +148,13 @@ export async function api(req, res, url) {
       for (let i = 0; i < 8; i++) {
         const codigo = codigoNuevo();
         try { await q("INSERT INTO torneos (codigo, nombre, creador_id, total_peleas) VALUES (?, ?, ?, ?)", [codigo, nombre, yo.id, total]); return json(res, 200, { ok: true, codigo, nombre, total }); }
-        catch (e) { if (e.code !== "ER_DUP_ENTRY") throw e; }
+        catch (e) { if (e.code !== "23505") throw e; }                 // 23505 = unique_violation (Postgres): el código ya existía, se prueba con otro
       }
       return fallo(res, 500, "No pude generar un código de torneo");
     }
     if (p[0] === "mis-torneos" && m === "GET") {
       return json(res, 200, { ok: true, torneos: await q(`SELECT t.codigo, t.nombre, t.total_peleas AS total, t.estado, t.creador_id = ? AS soy_creador,
-        (SELECT COUNT(*) FROM peleas WHERE torneo_id = t.id) AS jugadas
+        (SELECT COUNT(*)::int FROM peleas WHERE torneo_id = t.id) AS jugadas
         FROM torneos t WHERE t.creador_id = ? OR t.id IN (SELECT torneo_id FROM peleas WHERE ganador_id = ? OR perdedor_id = ?)
         ORDER BY t.id DESC LIMIT 30`, [yo.id, yo.id, yo.id, yo.id]) });
     }

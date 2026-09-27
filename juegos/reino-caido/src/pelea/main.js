@@ -1,7 +1,7 @@
 // Punto de entrada. Según la URL:
-//   /                       menú (cuenta, avatares, crear/unirse a un torneo)          → menu.js   (sin 3D)
-//   /?arena=CODIGO&av=ID    arena del anfitrión de ese torneo (corre el juego 3D)      → anfitrion.js
-//   /?t=CODIGO              sala de un amigo: mira, desafía y pelea desde su PC        → cliente.js (sin 3D)
+//   /juegos/reino-caido/    menú (cuenta, avatares, crear/unirse a un torneo)          → menu.js   (sin 3D)
+//   /juegos/reino-caido/?arena=CODIGO&av=ID   arena del anfitrión (corre el juego 3D)  → anfitrion.js
+//   /juegos/reino-caido/?t=CODIGO             sala de un amigo: mira, desafía y pelea  → cliente.js (sin 3D)
 
 const P = new URLSearchParams(location.search);
 const $ = s => document.querySelector(s);

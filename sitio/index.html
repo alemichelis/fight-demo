@@ -1,0 +1,504 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Daxenworld</title>
+  <meta name="description" content="Daxenworld: avatares 3D con IA, Musicverse, videojuegos online y experiencias inmersivas a medida con Unreal Engine, Metahuman y Convai.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Unbounded:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<div class="wrap" lang="es">
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="#inicio"><span class="brand-orb" aria-hidden="true"></span>DAXENWORLD</a>
+      <nav class="nav" aria-label="Secciones">
+        <a href="#servicios">Servicios</a>
+        <a href="#estudio">Estudio</a>
+        <a href="#musicverse">Musicverse</a>
+        <a href="#entrega">Entrega</a>
+        <a href="#contacto">Contacto</a>
+      </nav>
+      <a class="btn btn-sun btn-sm" href="#contacto">Hablemos</a>
+    </div>
+  </header>
+
+  <main>
+    <!-- ================= HERO ================= -->
+    <section class="stage" id="inicio" aria-label="Daxenworld">
+      <div class="window" id="heroWindow">
+        <canvas id="heroCanvas" aria-hidden="true"></canvas>
+        <div class="window-top">
+          <span class="label">Daxenworld · Mundo <span id="worldName">Atardecer</span></span>
+          <div class="worlds" role="group" aria-label="Elegí el mundo">
+            <span class="label">Elegí el mundo</span>
+            <button class="world-btn" data-world="atardecer" aria-pressed="true" aria-label="Mundo Atardecer" style="--sw: linear-gradient(180deg, #2a2031 0%, #e0a684 56%, #1a1215 57%)"></button>
+            <button class="world-btn" data-world="neon" aria-pressed="false" aria-label="Mundo Neón" style="--sw: linear-gradient(180deg, #0b0a20 0%, #e25b8f 56%, #0b0813 57%)"></button>
+            <button class="world-btn" data-world="niebla" aria-pressed="false" aria-label="Mundo Niebla" style="--sw: linear-gradient(180deg, #46504c 0%, #eee2cb 56%, #18201c 57%)"></button>
+            <button class="world-btn" data-world="violeta" aria-pressed="false" aria-label="Mundo Violeta" style="--sw: linear-gradient(180deg, #321833 0%, #ffc47e 56%, #1e0e1c 57%)"></button>
+            <button class="world-btn" data-world="aurora" aria-pressed="false" aria-label="Mundo Aurora" style="--sw: linear-gradient(180deg, #0c1823 0%, #6aaea3 56%, #0a1318 57%)"></button>
+          </div>
+        </div>
+
+        <div class="hero-copy">
+          <span class="pill"><i aria-hidden="true"></i>Metaverso de nueva generación</span>
+          <h1>Tu metaverso global de entretenimiento <em>y más</em></h1>
+          <p class="lede">Avatares 3D que conversan, un universo musical, videojuegos online y experiencias inmersivas a medida. Todo en Unreal Engine, Metahuman y Convai, listo para descargar o jugar por pixel streaming.</p>
+          <div class="cta-row">
+            <a class="btn btn-sun" href="#contacto">Contanos tu idea
+              <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+            </a>
+            <a class="btn btn-ghost" href="https://musicversebeta.web.app/" target="_blank" rel="noopener">Entrar al Musicverse
+              <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg>
+            </a>
+          </div>
+          <p class="hero-hint">Mové el mouse para recorrer el mundo. Dale play al beat y el portal late con la música.</p>
+        </div>
+      </div>
+
+      <div class="floats">
+        <article class="fcard" aria-label="Musicverse en vivo">
+          <div class="fc-head">
+            <span class="label">Musicverse · Beat sync</span>
+            <button class="play" id="playBtn" aria-pressed="false" aria-label="Escuchar un beat a 124 BPM">
+              <svg class="i i-play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13a.5.5 0 0 0 .77.42l10.2-6.5a.5.5 0 0 0 0-.84L8.77 5.08A.5.5 0 0 0 8 5.5Z"/></svg>
+              <svg class="i i-pause" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" hidden><rect x="6.5" y="5" width="4" height="14" rx="1"/><rect x="13.5" y="5" width="4" height="14" rx="1"/></svg>
+            </button>
+          </div>
+          <div class="big" id="bpm">124<small>BPM</small></div>
+          <canvas class="spark" id="spark" aria-hidden="true"></canvas>
+          <a class="fc-link" href="https://musicversebeta.web.app/" target="_blank" rel="noopener">Probar la beta
+            <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg>
+          </a>
+        </article>
+
+        <article class="fcard" aria-label="Avatar conversacional">
+          <div class="av-row">
+            <svg class="av-orb" viewBox="0 0 64 64" aria-hidden="true">
+              <defs>
+                <radialGradient id="orbSun" cx="38%" cy="30%" r="78%">
+                  <stop offset="0" stop-color="#FFE0B8"/>
+                  <stop offset=".55" stop-color="#F29A4B"/>
+                  <stop offset="1" stop-color="#9E4524"/>
+                </radialGradient>
+                <clipPath id="orbClip"><circle cx="32" cy="32" r="32"/></clipPath>
+              </defs>
+              <circle cx="32" cy="32" r="32" fill="url(#orbSun)"/>
+              <g clip-path="url(#orbClip)" fill="#2A1B25" opacity=".9">
+                <ellipse cx="32" cy="27" rx="9.5" ry="11.5"/>
+                <path d="M26.5 36h11l1.5 7h-14z"/>
+                <path d="M9 66c1.5-14 10-21 23-21s21.5 7 23 21z"/>
+              </g>
+            </svg>
+            <div>
+              <span class="label">Avatar IA · Convai</span>
+              <p class="av-say"><span id="sayText">Hola, soy Dax. ¿Qué mundo armamos hoy?</span><span class="caret" aria-hidden="true"></span></p>
+            </div>
+          </div>
+          <a class="fc-link" href="#estudio">Probalo en el estudio
+            <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </a>
+        </article>
+
+        <article class="fcard" aria-label="Partida online">
+          <span class="label">Partida online · Sala Plaza</span>
+          <div class="big">12<small>/ 16 jugadores</small></div>
+          <div class="players" aria-hidden="true">
+            <span style="--g: radial-gradient(circle at 35% 30%, #FFE0B8, #F29A4B 60%, #9E4524)"></span>
+            <span style="--g: radial-gradient(circle at 35% 30%, #F6D1E6, #C55B94 60%, #5E2350)"></span>
+            <span style="--g: radial-gradient(circle at 35% 30%, #CFF5EC, #46C2B0 60%, #16574E)"></span>
+            <span style="--g: radial-gradient(circle at 35% 30%, #E6D9F7, #A585B8 60%, #4B355C)"></span>
+            <span style="--g: radial-gradient(circle at 35% 30%, #FFF0C9, #E8B64C 60%, #7A5718)"></span>
+            <span style="--g: radial-gradient(circle at 35% 30%, #FFD3C4, #E0735B 60%, #7A2E22)"></span>
+            <span style="--g: radial-gradient(circle at 35% 30%, #D6E7F7, #6C93C4 60%, #2B4466)"></span>
+            <span class="more">+5</span>
+          </div>
+          <p class="fc-note">Cuentas, progreso y ranking con PlayFab.</p>
+        </article>
+        <p class="floats-caption">Vista previa de la plataforma</p>
+      </div>
+    </section>
+
+    <div class="stack" aria-label="Tecnología">
+      <span class="label">Tecnología</span>
+      <b>Unreal Engine 5</b>
+      <b>Metahuman</b>
+      <b>Convai</b>
+      <b>PlayFab</b>
+      <b>Pixel Streaming</b>
+      <b>Three.js · Babylon.js</b>
+    </div>
+
+    <!-- ================= SERVICES ================= -->
+    <section class="section" id="servicios">
+      <div class="sec-head">
+        <div>
+          <span class="label">Servicios</span>
+          <h2>Del avatar al mundo entero</h2>
+        </div>
+        <p>Seis líneas de trabajo con un mismo motor: Unreal Engine con IA conversacional. Elegí por dónde empezar o combinalas en una sola experiencia.</p>
+      </div>
+
+      <div class="bento">
+        <article class="svc wide" id="avatares">
+          <div class="svc-scene">
+            <canvas data-scene="atardecer" data-seed="4" aria-hidden="true"></canvas>
+            <div class="svc-over"><span class="svc-kicker">Avatares 3D</span><span class="svc-spec">Descarga · Pixel streaming</span></div>
+          </div>
+          <div class="svc-body">
+            <h3>Avatares hiperrealistas que hablan con tu público</h3>
+            <p>Creamos avatares a medida con Unreal Engine y Metahuman, y les damos voz y conversación en lenguaje natural con Convai. Funcionan como anfitriones, vendedores, guías o la versión digital de tu marca.</p>
+            <ul class="feats">
+              <li>Rostro, pelo, vestuario y expresiones a medida</li>
+              <li>Conversación por voz y texto con IA</li>
+              <li>Para web, mobile, eventos y streaming</li>
+            </ul>
+            <div class="svc-foot">
+              <div class="tags"><span class="tag">Metahuman</span><span class="tag">Convai</span><span class="tag">Unreal Engine 5</span></div>
+              <a class="more-link" href="#estudio">Probar el estudio
+                <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+              </a>
+            </div>
+          </div>
+        </article>
+
+        <article class="svc" id="musicverse">
+          <div class="svc-scene">
+            <canvas data-scene="neon" data-seed="7" aria-hidden="true"></canvas>
+            <div class="svc-over"><span class="svc-kicker">Musicverse</span><span class="svc-spec">Beta abierta</span></div>
+          </div>
+          <div class="svc-body">
+            <h3>Avatares que bailan al ritmo de la música</h3>
+            <p>Un mundo musical donde cada avatar se sincroniza con el beat. Personalizás tono de piel, pelo, outfit y aura, y entrás a la plaza o al venue desde el navegador.</p>
+            <div class="tiers">
+              <div class="tier"><b>Gratis</b>1 avatar y 3 bailes</div>
+              <div class="tier"><b>Pro <span>USD 9,99/mes</span></b>Avatares ilimitados, todos los bailes y app de escritorio</div>
+            </div>
+            <div class="svc-foot">
+              <a class="more-link" href="https://musicversebeta.web.app/" target="_blank" rel="noopener">Entrar al Musicverse
+                <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg>
+              </a>
+            </div>
+          </div>
+        </article>
+
+        <article class="svc" id="juegos">
+          <div class="svc-scene">
+            <canvas data-scene="aurora" data-seed="12" aria-hidden="true"></canvas>
+            <div class="svc-over"><span class="svc-kicker">Juegos online</span><span class="svc-spec">Multijugador</span></div>
+          </div>
+          <div class="svc-body">
+            <h3>Videojuegos para jugar online, sin instalar</h3>
+            <p>Desarrollamos juegos multijugador en Unreal Engine que corren en el navegador por pixel streaming o como descarga. Con PlayFab sumamos cuentas, progreso, rankings y economía dentro del juego.</p>
+            <ul class="feats">
+              <li>Salas y partidas en tiempo real</li>
+              <li>Logros, rankings y tienda con PlayFab</li>
+              <li>Web, PC y mobile</li>
+            </ul>
+            <div class="svc-foot">
+              <div class="tags"><span class="tag">Unreal Engine 5</span><span class="tag">PlayFab</span></div>
+            </div>
+          </div>
+        </article>
+
+        <article class="svc" id="personalidades">
+          <div class="svc-scene">
+            <canvas data-scene="violeta" data-seed="15" aria-hidden="true"></canvas>
+            <div class="svc-over"><span class="svc-kicker">Personalidades</span><span class="svc-spec">Gemelo digital</span></div>
+          </div>
+          <div class="svc-body">
+            <h3>Juegos protagonizados por personalidades</h3>
+            <p>Convertimos a artistas, influencers, deportistas o figuras de marca en personajes jugables: su gemelo digital en Metahuman, con voz y personalidad propias gracias a la IA de Convai.</p>
+            <ul class="feats">
+              <li>Réplica fiel del rostro y los gestos</li>
+              <li>Charla con los fans en lenguaje natural</li>
+              <li>Para lanzamientos, giras y campañas</li>
+            </ul>
+            <div class="svc-foot">
+              <div class="tags"><span class="tag">Metahuman</span><span class="tag">Convai</span></div>
+            </div>
+          </div>
+        </article>
+
+        <article class="svc" id="experiencias">
+          <div class="svc-scene">
+            <canvas data-scene="niebla" data-seed="18" aria-hidden="true"></canvas>
+            <div class="svc-over"><span class="svc-kicker">Experiencias</span><span class="svc-spec">A medida</span></div>
+          </div>
+          <div class="svc-body">
+            <h3>Mundos inmersivos hechos a medida</h3>
+            <p>Diseñamos metaversos propios para marcas, eventos, museos y ciudades: espacios que se recorren con avatar, con guías de IA y acceso desde cualquier dispositivo.</p>
+            <ul class="feats">
+              <li>Recorridos, eventos y showrooms virtuales</li>
+              <li>Anfitriones y guías con IA</li>
+              <li>Descarga o pixel streaming</li>
+            </ul>
+            <div class="svc-foot">
+              <a class="more-link" href="https://daxenworld.com/ba-experience" target="_blank" rel="noopener">Ver BA Experience
+                <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg>
+              </a>
+            </div>
+          </div>
+        </article>
+
+        <article class="svc full" id="ecommerce">
+          <div class="svc-scene">
+            <canvas data-scene="atardecer" data-seed="23" aria-hidden="true"></canvas>
+            <div class="svc-over"><span class="svc-kicker">Ecommerce 3D</span><span class="svc-spec">Unreal · PlayFab</span></div>
+          </div>
+          <div class="svc-body">
+            <h3>Tiendas en 3D donde se recorre, se prueba y se compra</h3>
+            <p>Llevamos tu catálogo a un espacio 3D construido en Unreal Engine con PlayFab: los clientes recorren la tienda, ven cada producto a escala real y los atiende un avatar vendedor con IA.</p>
+            <ul class="feats">
+              <li>Showroom navegable con tu catálogo</li>
+              <li>Avatar vendedor que responde consultas</li>
+              <li>Cuentas, inventario y compras con PlayFab</li>
+            </ul>
+            <div class="svc-foot">
+              <div class="tags"><span class="tag">Unreal Engine 5</span><span class="tag">PlayFab</span><span class="tag">Pixel Streaming</span></div>
+              <a class="more-link" href="https://daxenworld.com/ecommerce" target="_blank" rel="noopener">Ver ecommerce
+                <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg>
+              </a>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- ================= AVATAR STUDIO ================= -->
+    <section class="section" id="estudio">
+      <div class="sec-head">
+        <div>
+          <span class="label">Estudio de avatares</span>
+          <h2>Dax, un avatar en vivo</h2>
+        </div>
+        <p>Dax es nuestro avatar de demostración en modo holograma. Cambiá el tono y la visualización, movelo con el mouse o hacelo hablar.</p>
+      </div>
+
+      <div class="studio">
+        <div class="studio-side">
+          <div class="field">
+            <span class="label" id="lblTone">Tono</span>
+            <div class="swatches" role="group" aria-labelledby="lblTone">
+              <button type="button" class="swatch" data-c1="#f29a4b" data-c2="#ffe2bf" aria-pressed="true" aria-label="Ámbar" style="--s:#f29a4b; --glow: rgba(242,154,75,.5)"></button>
+              <button type="button" class="swatch" data-c1="#2fc8ff" data-c2="#d9f8ff" aria-pressed="false" aria-label="Cian" style="--s:#2fc8ff; --glow: rgba(47,200,255,.45)"></button>
+              <button type="button" class="swatch" data-c1="#a36bff" data-c2="#efdcff" aria-pressed="false" aria-label="Violeta" style="--s:#a36bff; --glow: rgba(163,107,255,.45)"></button>
+              <button type="button" class="swatch" data-c1="#46c2b0" data-c2="#d6fff5" aria-pressed="false" aria-label="Menta" style="--s:#46c2b0; --glow: rgba(70,194,176,.45)"></button>
+              <button type="button" class="swatch" data-c1="#ff5f9e" data-c2="#ffd9e8" aria-pressed="false" aria-label="Rosa" style="--s:#ff5f9e; --glow: rgba(255,95,158,.45)"></button>
+            </div>
+          </div>
+          <div class="field">
+            <span class="label" id="lblMode">Modo</span>
+            <div class="chips" role="group" aria-labelledby="lblMode">
+              <button type="button" class="chip" data-mode="holo" aria-pressed="true">Holograma</button>
+              <button type="button" class="chip" data-mode="scan" aria-pressed="false">Escaneo</button>
+              <button type="button" class="chip" data-mode="particles" aria-pressed="false">Partículas</button>
+            </div>
+          </div>
+          <div class="field">
+            <div class="field-row"><label class="label" for="detail">Detalle</label><span class="val" id="ptCount">Cargando…</span></div>
+            <input type="range" id="detail" min="25" max="100" value="100">
+          </div>
+          <div class="field">
+            <span class="label">Voz IA</span>
+            <div class="talk-row">
+              <button type="button" class="btn btn-sun" id="talkBtn">
+                <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10v4M8 7v10M12 4v16M16 8v8M20 11v2"/></svg>
+                Escuchar a Dax
+              </button>
+              <button type="button" class="chip" id="voiceToggle" aria-pressed="true">Con audio</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="studio-view" id="studioView">
+          <canvas id="studioCanvas" role="img" aria-label="Avatar holográfico de demostración"></canvas>
+          <div class="sv-top">
+            <span class="sv-id"><i aria-hidden="true"></i>Dax · Avatar IA</span>
+            <span class="label">Vista holográfica · demo</span>
+          </div>
+          <div class="sv-bottom">
+            <p class="sv-sub" id="studioSub">Tocá “Escuchar a Dax” para que te hable.</p>
+            <div class="voice" id="studioVoice" aria-hidden="true">
+              <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+            </div>
+          </div>
+          <p class="sv-fallback" id="studioFallback" hidden>Tu navegador no pudo iniciar la vista 3D. Probá desde Chrome, Edge, Firefox o Safari actualizados.</p>
+        </div>
+
+        <div class="studio-side">
+          <span class="label">Qué incluye tu avatar</span>
+          <ul class="feats">
+            <li>Rostro y cuerpo Metahuman a medida</li>
+            <li>Voz y conversación con Convai</li>
+            <li>Gestos, expresiones y lipsync</li>
+            <li>Conocimiento de tu marca y tu catálogo</li>
+          </ul>
+          <dl class="spec tight">
+            <dt>Motor</dt><dd>Unreal Engine 5</dd>
+            <dt>Rostro</dt><dd>Metahuman</dd>
+            <dt>Diálogo</dt><dd>Convai</dd>
+            <dt>Salida</dt><dd>Web, mobile, descarga o pixel streaming</dd>
+          </dl>
+          <a class="btn btn-ghost" href="#contacto" data-preselect="Avatares 3D">Pedí tu avatar
+            <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= DELIVERY ================= -->
+    <section class="section" id="entrega">
+      <div class="sec-head">
+        <div>
+          <span class="label">Entrega</span>
+          <h2>Descargalo o jugalo desde el navegador</h2>
+        </div>
+        <p>Cada proyecto sale en el formato que mejor le queda a tu público. Podés combinar los dos.</p>
+      </div>
+      <div class="deliver">
+        <article class="dcard">
+          <div class="d-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg></div>
+          <h3>Descarga</h3>
+          <p>Un build de escritorio que corre en la placa de video de cada usuario, con la calidad completa de Unreal Engine.</p>
+          <dl class="spec">
+            <dt>Instalación</dt><dd>Sí, para Windows o Mac</dd>
+            <dt>Calidad</dt><dd>Máxima, según el equipo</dd>
+            <dt>Conexión</dt><dd>Sólo para multijugador o IA en línea</dd>
+          </dl>
+          <p class="best">Ideal para instalaciones, eventos presenciales y apps de escritorio.</p>
+        </article>
+        <article class="dcard alt">
+          <div class="d-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="m10 8.5 4.5 2.5-4.5 2.5z"/><path d="M8 21h8"/></svg></div>
+          <h3>Pixel streaming</h3>
+          <p>El juego corre en servidores con GPU y llega al navegador como video interactivo. Se abre con un link.</p>
+          <dl class="spec">
+            <dt>Instalación</dt><dd>No hace falta</dd>
+            <dt>Calidad</dt><dd>Gráficos de Unreal en celular, tablet o PC</dd>
+            <dt>Conexión</dt><dd>Internet estable</dd>
+          </dl>
+          <p class="best">Ideal para campañas, lanzamientos, ecommerce y eventos online.</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- ================= PROCESS ================= -->
+    <section class="section" id="proceso">
+      <div class="sec-head">
+        <div>
+          <span class="label">Proceso</span>
+          <h2>De la idea al mundo publicado</h2>
+        </div>
+        <p>Trabajamos por etapas cortas para que veas el mundo funcionando desde el principio.</p>
+      </div>
+      <ol class="steps">
+        <li class="step"><div class="step-n">01</div><h3>Brief</h3><p>Nos contás qué querés lograr, para quién y en qué plazo. Definimos el alcance juntos.</p></li>
+        <li class="step"><div class="step-n">02</div><h3>Prototipo</h3><p>Armamos una primera versión jugable del mundo o del avatar para validar la idea.</p></li>
+        <li class="step"><div class="step-n">03</div><h3>Producción</h3><p>Modelado, animación, IA conversacional, multijugador y optimización en Unreal Engine.</p></li>
+        <li class="step"><div class="step-n">04</div><h3>Lanzamiento</h3><p>Publicamos como descarga o por pixel streaming y seguimos iterando con vos.</p></li>
+      </ol>
+    </section>
+
+    <!-- ================= CONTACT ================= -->
+    <section class="section" id="contacto">
+      <div class="sec-head">
+        <div>
+          <span class="label">Contacto</span>
+          <h2>Contanos qué querés construir</h2>
+        </div>
+        <p>Armá tu pedido en 30 segundos, copiá el mensaje y mandalo por mail o por Instagram.</p>
+      </div>
+
+      <div class="contact">
+        <div class="brief">
+          <div class="field">
+            <span class="label" id="lblSvc">¿Qué te interesa?</span>
+            <div class="chips" role="group" aria-labelledby="lblSvc">
+              <button type="button" class="chip" data-svc="Avatares 3D" aria-pressed="true">Avatares 3D</button>
+              <button type="button" class="chip" data-svc="Musicverse" aria-pressed="false">Musicverse</button>
+              <button type="button" class="chip" data-svc="Videojuego online" aria-pressed="false">Videojuego online</button>
+              <button type="button" class="chip" data-svc="Juego con personalidades" aria-pressed="false">Juego con personalidades</button>
+              <button type="button" class="chip" data-svc="Experiencia inmersiva" aria-pressed="true">Experiencia inmersiva</button>
+              <button type="button" class="chip" data-svc="Ecommerce 3D" aria-pressed="false">Ecommerce 3D</button>
+            </div>
+          </div>
+          <div class="field">
+            <span class="label" id="lblDel">¿Cómo lo querés entregar?</span>
+            <div class="chips" role="group" aria-labelledby="lblDel">
+              <button type="button" class="chip" data-del="Descarga" aria-pressed="false">Descarga</button>
+              <button type="button" class="chip" data-del="Pixel streaming" aria-pressed="true">Pixel streaming</button>
+              <button type="button" class="chip" data-del="Descarga y pixel streaming" aria-pressed="false">Los dos</button>
+              <button type="button" class="chip" data-del="A definir" aria-pressed="false">Todavía no sé</button>
+            </div>
+          </div>
+          <div class="field">
+            <label class="label" for="fName">Tu nombre o marca</label>
+            <input id="fName" type="text" placeholder="Ej.: Estudio Norte" autocomplete="organization">
+          </div>
+          <div class="field">
+            <label class="label" for="fIdea">La idea</label>
+            <textarea id="fIdea" placeholder="Ej.: Un avatar anfitrión que reciba a los visitantes de nuestro stand virtual y les muestre los productos en 3D."></textarea>
+          </div>
+        </div>
+
+        <div class="out">
+          <div class="out-scene">
+            <canvas data-scene="violeta" data-seed="31" aria-hidden="true"></canvas>
+            <span class="label">Tu mensaje</span>
+          </div>
+          <div class="out-body">
+            <pre class="msg" id="msg"></pre>
+            <div class="out-actions">
+              <button type="button" class="btn btn-sun btn-sm" id="copyMsg">
+                <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg>
+                Copiar mensaje
+              </button>
+              <a class="btn btn-ghost btn-sm" id="mailLink" href="mailto:alemichelis@daxenworld.com">Abrir en tu correo</a>
+            </div>
+            <span class="status" id="status" role="status"></span>
+            <div class="email-row">
+              <span class="label">Mandalo a</span>
+              <span class="email" id="email">alemichelis@daxenworld.com</span>
+              <button type="button" class="icon-btn" id="copyEmail" aria-label="Copiar email">
+                <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg>
+              </button>
+            </div>
+            <a class="more-link" href="https://www.instagram.com/daxenworldtech" target="_blank" rel="noopener">
+              <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor"/></svg>
+              O escribinos por Instagram: @daxenworldtech
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <div>
+      <a class="brand" href="#inicio"><span class="brand-orb" aria-hidden="true"></span>DAXENWORLD</a>
+      <p>Entrá a un metaverso digital totalmente inmersivo.</p>
+    </div>
+    <div class="foot-links">
+      <a href="https://musicversebeta.web.app/" target="_blank" rel="noopener">Musicverse beta</a>
+      <a href="https://daxenworld.com/ba-experience" target="_blank" rel="noopener">BA Experience</a>
+      <a href="https://www.instagram.com/daxenworldtech" target="_blank" rel="noopener">@daxenworldtech</a>
+      <span>alemichelis@daxenworld.com</span>
+    </div>
+    <div class="copy">© 2024–2026 Daxenworld. Todos los derechos reservados.</div>
+  </footer>
+</div>
+
+  <!-- Three.js r147 + postprocesado -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/shaders/CopyShader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/postprocessing/EffectComposer.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/postprocessing/RenderPass.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/postprocessing/ShaderPass.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

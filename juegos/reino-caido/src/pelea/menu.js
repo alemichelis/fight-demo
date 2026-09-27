@@ -65,10 +65,10 @@ export async function iniciarMenu() {
       $(".t-crear").disabled = true; $(".t-err").textContent = "";
       try {
         const t = await pedir("/api/torneos", { metodo: "POST", cuerpo: { nombre: $(".t-nombre").value, peleas: $(".t-peleas").value } });
-        location.href = `/?arena=${t.codigo}&av=${av}`;
+        location.href = `/juegos/reino-caido/?arena=${t.codigo}&av=${av}`;
       } catch (e) { $(".t-err").textContent = e.message; $(".t-crear").disabled = false; }
     };
-    const unirse = () => { const c = $(".u-cod").value.trim().toUpperCase(); if (c.length < 4) { $(".u-err").textContent = "Escribí el código que te pasaron."; return; } location.href = `/?t=${encodeURIComponent(c)}`; };
+    const unirse = () => { const c = $(".u-cod").value.trim().toUpperCase(); if (c.length < 4) { $(".u-err").textContent = "Escribí el código que te pasaron."; return; } location.href = `/juegos/reino-caido/?t=${encodeURIComponent(c)}`; };
     $(".u-ir").onclick = unirse; $(".u-cod").addEventListener("keydown", e => { if (e.key === "Enter") unirse(); });
 
     /* ---- mis torneos y ranking */
@@ -89,7 +89,7 @@ export async function iniciarMenu() {
       $(".mt").innerHTML = torneos.length ? torneos.map(t => `<div class="mn-fila"><span><b>${esc(t.nombre)}</b><small>${esc(t.codigo)} · ${t.jugadas}/${t.total}${t.estado === "terminado" ? " · terminado" : ""}</small></span>
         <span class="mn-bts">${t.soy_creador && t.estado === "abierto" ? `<button data-a="${t.codigo}">Abrir arena</button>` : ""}<button data-v="${t.codigo}">Ver</button></span></div>`).join("") : "<p class='mn-nota'>Todavía no participaste en ningún torneo.</p>";
       $(".mt").querySelectorAll("[data-v]").forEach(b => b.onclick = () => detalle(b.dataset.v));
-      $(".mt").querySelectorAll("[data-a]").forEach(b => b.onclick = () => { const av = $(".t-avatar").value; if (!av) { alert("Primero creá tu avatar con Avaturn."); return; } location.href = `/?arena=${b.dataset.a}&av=${av}`; });
+      $(".mt").querySelectorAll("[data-a]").forEach(b => b.onclick = () => { const av = $(".t-avatar").value; if (!av) { alert("Primero creá tu avatar con Avaturn."); return; } location.href = `/juegos/reino-caido/?arena=${b.dataset.a}&av=${av}`; });
     } catch (e) { $(".mt").innerHTML = `<p class="mn-err">${esc(e.message)}</p>`; }
     try {
       const { ranking } = await pedir("/api/ranking");

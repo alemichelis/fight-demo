@@ -104,7 +104,7 @@ export class Lobby extends Titulo {
       cont.innerHTML = html; cont.dataset.h = html;
       cont.querySelector(".lb-mas")?.addEventListener("click", () => sala.enviar({ t: "mas_tiempo" }));
       cont.querySelector(".lb-yo")?.addEventListener("click", () => sala.enviar({ t: "desafiar", avatarId: this.app.avatarId }));
-      cont.querySelector(".lb-menu")?.addEventListener("click", () => { sala.cerrar(); location.href = "/"; });
+      cont.querySelector(".lb-menu")?.addEventListener("click", () => { sala.cerrar(); location.href = "/juegos/reino-caido/"; });
     }
   }
 }
