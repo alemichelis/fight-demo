@@ -1,5 +1,8 @@
 (function () {
   'use strict';
+  // idioma: /js/idioma.js traduce el HTML; lo que se escribe letra por letra o se arma acá pasa por tr()
+  var EN = window.DX_IDIOMA === 'en';
+  var tr = window.t || function (s) { return s; };
   var RM = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
   /* =====================================================================
@@ -905,7 +908,7 @@
     'Puedo recibir a tus visitantes, responder preguntas y mostrar tus productos.',
     'Me entrenan con la información de tu marca y hablo en tu idioma.',
     'Me podés usar en la web, en mobile, en eventos o por pixel streaming.'
-  ];
+  ].map(tr);
 
   function initStudio() {
     var T = window.THREE;
@@ -1057,7 +1060,7 @@
       if (points) {
         var count = Math.round(total * v / 100);
         points.geometry.setDrawRange(0, count);
-        ptLabel.textContent = count.toLocaleString('es-AR') + ' puntos';
+        ptLabel.textContent = count.toLocaleString(EN ? 'en-US' : 'es-AR') + (EN ? ' points' : ' puntos');
       }
     }
     detail.addEventListener('input', applyDetail);
@@ -1179,12 +1182,13 @@
   voiceToggle.addEventListener('click', function () {
     var on = voiceToggle.getAttribute('aria-pressed') !== 'true';
     voiceToggle.setAttribute('aria-pressed', String(on));
-    voiceToggle.textContent = on ? 'Con audio' : 'Sin audio';
+    voiceToggle.textContent = tr(on ? 'Con audio' : 'Sin audio');
     if (!on && window.speechSynthesis) { try { window.speechSynthesis.cancel(); } catch (e) {} }
   });
   function pickVoice() {
     try {
       var vs = window.speechSynthesis.getVoices() || [];
+      if (EN) return vs.filter(function (v) { return /en[-_](US|GB)/i.test(v.lang); })[0] || vs.filter(function (v) { return /^en/i.test(v.lang); })[0] || null;
       return vs.filter(function (v) { return /es[-_](AR|US|419|MX)/i.test(v.lang); })[0] || vs.filter(function (v) { return /^es/i.test(v.lang); })[0] || null;
     } catch (e) { return null; }
   }
@@ -1202,7 +1206,7 @@
       try {
         window.speechSynthesis.cancel();
         var u = new SpeechSynthesisUtterance(text);
-        u.lang = 'es-AR'; var v = pickVoice(); if (v) u.voice = v;
+        u.lang = EN ? 'en-US' : 'es-AR'; var v = pickVoice(); if (v) u.voice = v;
         u.rate = 1.02; u.pitch = 1;
         u.onstart = function () { speechActive = true; };
         u.onend = u.onerror = function () { speechActive = false; maybeStop(); };
@@ -1277,7 +1281,7 @@
       if (RM) drawSpark();
       return;
     }
-    if (!ensureAudio()) { playBtn.disabled = true; playBtn.title = 'Tu navegador no permite reproducir audio'; return; }
+    if (!ensureAudio()) { playBtn.disabled = true; playBtn.title = tr('Tu navegador no permite reproducir audio'); return; }
     if (actx.state === 'suspended') actx.resume();
     audioStart = actx.currentTime + 0.06; schedT = audioStart; stepIdx = 0;
     playing = true; timerId = setInterval(scheduler, 25); scheduler(); setPlayUI(true);
@@ -1288,7 +1292,7 @@
     'Hola, soy Dax. ¿Qué mundo armamos hoy?',
     'Hablo con tu público por voz o por texto, en tiempo real.',
     'Me encontrás en la web, en mobile o por pixel streaming.'
-  ];
+  ].map(tr);
   var sayEl = document.getElementById('sayText');
   function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
   async function talkLoop() {
@@ -1313,6 +1317,10 @@
     var svcs = svcChips.filter(function (c) { return c.getAttribute('aria-pressed') === 'true'; }).map(function (c) { return c.getAttribute('data-svc'); });
     var del = delChips.filter(function (c) { return c.getAttribute('aria-pressed') === 'true'; }).map(function (c) { return c.getAttribute('data-del'); })[0] || 'A definir';
     var name = nameIn.value.trim(), idea = ideaIn.value.trim();
+    if (EN) return 'Hi Daxenworld' + (name ? ', this is ' + name : '') + '.\n\n' +
+      'I’m interested in: ' + (svcs.length ? svcs.map(tr).join(', ') : 'not sure yet') + '.\n' +
+      'Delivery: ' + tr(del) + '.\n\n' +
+      'The idea: ' + (idea || '(tell us here what you want to build, for whom and by when)');
     return 'Hola Daxenworld' + (name ? ', soy ' + name : '') + '.\n\n' +
       'Me interesa: ' + (svcs.length ? svcs.join(', ') : 'todavía no lo sé') + '.\n' +
       'Entrega: ' + del + '.\n\n' +
@@ -1321,7 +1329,7 @@
   function update() {
     var text = compose();
     msgEl.textContent = text;
-    mailLink.href = 'mailto:' + EMAIL + '?subject=' + encodeURIComponent('Proyecto con Daxenworld') + '&body=' + encodeURIComponent(text);
+    mailLink.href = 'mailto:' + EMAIL + '?subject=' + encodeURIComponent(EN ? 'Project with Daxenworld' : 'Proyecto con Daxenworld') + '&body=' + encodeURIComponent(text);
   }
   svcChips.forEach(function (c) {
     c.addEventListener('click', function () { c.setAttribute('aria-pressed', String(c.getAttribute('aria-pressed') !== 'true')); update(); });
@@ -1351,14 +1359,14 @@
     var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
   }
   function copy(text, el, okMsg) {
-    var fallback = function () { selectText(el); say('Texto seleccionado: copialo con Ctrl+C o ⌘+C.'); };
+    var fallback = function () { selectText(el); say(tr('Texto seleccionado: copialo con Ctrl+C o ⌘+C.')); };
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(function () { say(okMsg); }, fallback);
       else fallback();
     } catch (e) { fallback(); }
   }
-  document.getElementById('copyMsg').addEventListener('click', function () { copy(compose(), msgEl, 'Mensaje copiado. Pegalo en un mail a ' + EMAIL + '.'); });
-  document.getElementById('copyEmail').addEventListener('click', function () { copy(EMAIL, document.getElementById('email'), 'Email copiado.'); });
+  document.getElementById('copyMsg').addEventListener('click', function () { copy(compose(), msgEl, tr('Mensaje copiado. Pegalo en un mail a ' + EMAIL + '.')); });
+  document.getElementById('copyEmail').addEventListener('click', function () { copy(EMAIL, document.getElementById('email'), tr('Email copiado.')); });
 
   /* =====================================================================
      7. Loop, visibility, layout

@@ -1,7 +1,12 @@
 <!doctype html>
-<html lang="es">
+<html lang="es" data-i18n="sitio">
 <head>
   <meta charset="utf-8">
+<script src="/js/idioma.js"></script>
+<script src="/js/en.js"></script>
+<link rel="alternate" hreflang="es" href="https://daxenworld.com/?lang=es">
+<link rel="alternate" hreflang="en" href="https://daxenworld.com/?lang=en">
+<link rel="alternate" hreflang="x-default" href="https://daxenworld.com/">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Daxenworld</title>
   <meta name="description" content="Daxenworld: avatares 3D con IA, Musicverse, videojuegos online y experiencias inmersivas a medida con Unreal Engine, Metahuman y Convai.">
@@ -11,7 +16,7 @@
   <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
-<div class="wrap" lang="es">
+<div class="wrap">
   <header class="topbar">
     <div class="topbar-inner">
       <a class="brand" href="#inicio"><span class="brand-orb" aria-hidden="true"></span>DAXENWORLD</a>
@@ -24,6 +29,7 @@
         <a href="#entrega">Entrega</a>
         <a href="#contacto">Contacto</a>
       </nav>
+      <span class="topbar-idioma" data-idioma></span>
       <a class="btn btn-sun btn-sm" href="#contacto">Hablemos</a>
     </div>
   </header>

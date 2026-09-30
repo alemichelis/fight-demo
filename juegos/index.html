@@ -1,7 +1,12 @@
 <!doctype html>
-<html lang="es">
+<html lang="es" data-i18n="juegos">
 <head>
 <meta charset="utf-8">
+<script src="/js/idioma.js"></script>
+<script src="/js/en.js"></script>
+<link rel="alternate" hreflang="es" href="https://daxenworld.com/juegos/?lang=es">
+<link rel="alternate" hreflang="en" href="https://daxenworld.com/juegos/?lang=en">
+<link rel="alternate" hreflang="x-default" href="https://daxenworld.com/juegos/">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Juegos · Daxenworld</title>
 <meta name="description" content="Catálogo de juegos de Daxenworld: multijugador, en el navegador, con una sola cuenta para todos.">
@@ -44,7 +49,7 @@
 <body>
   <header class="cab">
     <a class="marca" href="/"><i></i>Daxenworld</a>
-    <a class="volver" href="/">← Volver al sitio</a>
+    <span style="display:flex;align-items:center;gap:12px"><span data-idioma></span><a class="volver" href="/">← Volver al sitio</a></span>
   </header>
   <main>
     <p class="kicker">Catálogo</p>

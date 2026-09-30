@@ -1,7 +1,9 @@
 <!doctype html>
-<html lang="es">
+<html lang="es" data-i18n="pelea">
 <head>
 <meta charset="utf-8">
+<script src="/js/idioma.js"></script>
+<script src="/js/en.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Reino Caído · Menú de pelea · Daxenworld</title>
 <meta name="description" content="Menú de juego de lucha: modo, selección de luchadores para dos jugadores y pantalla de versus. Web y mobile.">
@@ -50,7 +52,8 @@
   .modo.sel { transform: translateY(-10px) scale(1.03); filter: none; }
   .modo.sel::before { border-color: var(--oro); }
   .modo .etq { font: 700 12px/1 var(--f-ui); letter-spacing: .26em; color: var(--oro); }
-  .modo h2 { margin: 8px 0 6px; font: 400 58px/.85 var(--f-disp); letter-spacing: .02em; }
+  .modo h2 { margin: 8px 0 6px; font: 400 58px/.85 var(--f-disp); letter-spacing: .02em; white-space: nowrap; }
+  :lang(en) .modo h2 { font-size: 48px; }   /* «TOURNAMENT» no entra a 58px en la carta */
   .modo p { margin: 0; color: #cfc8d8; font-weight: 500; font-size: 16px; }
   .modo .deco { position: absolute; top: 16px; right: 18px; font: 400 96px/1 var(--f-disp); color: rgba(255, 255, 255, .06); }
   .modo { background: linear-gradient(180deg, rgba(14, 11, 22, .72) 0%, rgba(8, 6, 13, .97) 62%), var(--arte), #0b0912; }
@@ -138,6 +141,7 @@
 
   .volver { position: fixed; z-index: 5; left: 14px; bottom: 14px; font: 700 12px/1 var(--f-ui); letter-spacing: .2em; color: var(--apagado); text-decoration: none; padding: 8px 12px; border: 1px solid rgba(255, 255, 255, .18); background: rgba(5, 4, 9, .7); }
   .volver:hover { color: var(--tinta); }
+  .idioma-menu { position: fixed; z-index: 5; bottom: 12px; left: 120px; color: var(--apagado); }
 
   /* ---------------------------------------------------------------- MOBILE */
   @media (max-width: 760px) {
@@ -215,7 +219,7 @@
     </section>
   </main>
 </div>
-<a class="volver" href="./">← MENÚES</a>
+<a class="volver" href="./">← MENÚES</a><span class="idioma-menu" data-idioma></span>
 
 <script>
   const $ = s => document.querySelector(s);

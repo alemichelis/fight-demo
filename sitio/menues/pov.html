@@ -1,7 +1,9 @@
 <!doctype html>
-<html lang="es">
+<html lang="es" data-i18n="pov">
 <head>
 <meta charset="utf-8">
+<script src="/js/idioma.js"></script>
+<script src="/js/en.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Operación TX-03 · Menú POV · Daxenworld</title>
 <meta name="description" content="Menú de shooter en primera persona: inicio, equipo con estadísticas y HUD en partida. Web y mobile.">
@@ -68,6 +70,8 @@
   @keyframes late { 50% { opacity: .35; } }
   .volver { position: fixed; z-index: 5; left: 50%; bottom: 10px; transform: translateX(-50%); font: 600 11px/1 var(--f-mono); letter-spacing: .12em; color: var(--apagado); text-decoration: none; padding: 7px 10px; border: 1px solid var(--linea); background: rgba(2, 8, 14, .7); }
   .volver:hover { color: var(--tinta); }
+  .idioma-menu { position: fixed; z-index: 5; bottom: 8px; left: calc(50% + 64px); color: var(--apagado); }
+  @media (max-width: 760px) { .idioma-menu { bottom: 12px; } }
 
   /* ---------------------------------------------------------------- INICIO */
   #v-inicio { grid-template-columns: minmax(300px, 460px) 1fr; gap: clamp(20px, 5vw, 80px); padding: clamp(24px, 5vh, 56px) clamp(18px, 4vw, 48px); align-items: center; }
@@ -277,7 +281,7 @@
     <span class="estado">SERVIDOR · 24 MS</span>
   </footer>
 </div>
-<a class="volver" href="./">← MENÚES</a>
+<a class="volver" href="./">← MENÚES</a><span class="idioma-menu" data-idioma></span>
 
 <script>
   const $ = s => document.querySelector(s);

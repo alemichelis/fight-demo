@@ -1,7 +1,9 @@
 <!doctype html>
-<html lang="es">
+<html lang="es" data-i18n="rpg">
 <head>
 <meta charset="utf-8">
+<script src="/js/idioma.js"></script>
+<script src="/js/en.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Crónicas del Cristal · Menú RPG · Daxenworld</title>
 <meta name="description" content="Menú de RPG: pantalla principal con partida guardada, ficha del héroe con atributos y equipo, inventario con rarezas. Web y mobile.">
@@ -123,6 +125,7 @@
 
   .volver { position: fixed; z-index: 5; right: 14px; bottom: 14px; font: 700 12px/1 var(--f-tit); letter-spacing: .2em; color: var(--apagado); text-decoration: none; padding: 9px 12px; border: 1px solid rgba(217, 178, 95, .3); background: rgba(11, 8, 6, .75); }
   .volver:hover { color: var(--oro-claro); }
+  .idioma-menu { position: fixed; z-index: 5; bottom: 12px; right: 142px; color: var(--apagado); }
 
   /* ---------------------------------------------------------------- MOBILE */
   @media (max-width: 860px) {
@@ -230,7 +233,7 @@
     </section>
   </main>
 </div>
-<a class="volver" href="./">← MENÚES</a>
+<a class="volver" href="./">← MENÚES</a><span class="idioma-menu" data-idioma></span>
 
 <script>
   const $ = s => document.querySelector(s);
