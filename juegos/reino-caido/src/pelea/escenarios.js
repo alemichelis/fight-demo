@@ -271,17 +271,18 @@ export function construirCyber(A) {
     if (i % 3 === 0) A.actualizadores.push(tt => { s.material.opacity = 0.7 + 0.3 * Math.sin(tt * 7 + i) * Math.sin(tt * 2.3 + i * 3); });
   });
 
-  /* cartel gigante de TAXI, bien de frente y arriba de todo, como remate del skyline */
+  /* carteles gigantes de TAXI y Jakks sobre el pasillo central (sin torres ahí): a esta distancia y altura entran en el encuadre
+     real de la cámara de pelea (FOV vertical 30°, mira apenas hacia abajo), no quedan cortados arriba */
   const txTaxi = letreroTex("TAXI", "#ffe040", 700, 260);
-  const taxi = new THREE.Mesh(new THREE.PlaneGeometry(22, 8.2), new THREE.MeshBasicMaterial({ map: txTaxi, transparent: true, color: new THREE.Color(2.4, 2.4, 2.4), toneMapped: false, depthWrite: false, blending: THREE.AdditiveBlending }));
-  taxi.position.set(-25, 30, -55); taxi.rotation.y = 0.22; esc.add(taxi);
-  caja(esc, 23, 9, 0.3, mTecho, taxi.position.x, taxi.position.y, taxi.position.z - 0.25, { sombra: false, ry: 0.22 });
+  const taxi = new THREE.Mesh(new THREE.PlaneGeometry(9, 3.4), new THREE.MeshBasicMaterial({ map: txTaxi, transparent: true, color: new THREE.Color(2.4, 2.4, 2.4), toneMapped: false, depthWrite: false, blending: THREE.AdditiveBlending }));
+  taxi.position.set(-5.5, 7.6, -40); taxi.rotation.y = 0.12; esc.add(taxi);
+  caja(esc, 9.4, 3.8, 0.3, mTecho, taxi.position.x, taxi.position.y, taxi.position.z - 0.25, { sombra: false, ry: 0.12 });
+  caja(esc, 0.3, 6, 0.3, mTecho, taxi.position.x, 3, taxi.position.z - 0.3, { sombra: false });
   A.actualizadores.push(tt => { taxi.material.opacity = 0.75 + 0.25 * Math.sin(tt * 5); });
 
-  /* cartel gigante con el logo de Jakks, del otro lado del cielo */
   const texJakks = new THREE.TextureLoader().load("/juegos/reino-caido/assets/models/logo-jakks.png", t => { t.colorSpace = THREE.SRGBColorSpace; });
-  const jakks = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), new THREE.MeshBasicMaterial({ map: texJakks, transparent: true, color: new THREE.Color(2.0, 2.0, 2.0), toneMapped: false, depthWrite: false, blending: THREE.AdditiveBlending }));
-  jakks.position.set(25, 27, -52); jakks.rotation.y = -0.25; esc.add(jakks);
+  const jakks = new THREE.Mesh(new THREE.PlaneGeometry(6.5, 6.5), new THREE.MeshBasicMaterial({ map: texJakks, transparent: true, color: new THREE.Color(2.0, 2.0, 2.0), toneMapped: false, depthWrite: false, blending: THREE.AdditiveBlending }));
+  jakks.position.set(5.8, 7.4, -40); jakks.rotation.y = -0.12; esc.add(jakks);
   A.actualizadores.push(tt => { jakks.material.opacity = 0.8 + 0.2 * Math.sin(tt * 4 + 2); });
 
   /* holograma gigante (shader animado) */
@@ -315,17 +316,20 @@ export function construirCyber(A) {
   }
   A.actualizadores.push((tt, dt) => { for (const c of coches) { c.g.position.x += c.v * dt; if (c.g.position.x > 130) c.g.position.x = -130; if (c.g.position.x < -130) c.g.position.x = 130; } });
 
-  /* estación de fondo: fundida con el piso, cerca y de costado (fuera del pasillo de pelea) para que se note de verdad */
-  loadModel("/juegos/reino-caido/assets/models/cyberpunk_station.glb").then(({ scene: estacion }) => {
-    const ESC = 0.32, MINY = -4.83;                   // MINY: punto más bajo del modelo tal cual viene, para apoyarlo en el piso
-    estacion.scale.setScalar(ESC);
-    estacion.position.set(-9, -1.25 - MINY * ESC, -25);          // pegada al piso, justo al costado de la pelea, DENTRO de lo que la cámara realmente encuadra (FOV angosto)
-    estacion.rotation.y = 0.5;
-    estacion.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; o.frustumCulled = false; } });
-    esc.add(estacion); window.__estacionLista = true;
-    // un par de luces de color le pegan de lleno, si no queda como una silueta negra contra el neón de atrás
-    const luzC = new THREE.PointLight("#40e0ff", 40, 20, 1.4); luzC.position.set(-14, 6, -20); esc.add(luzC);
-    const luzM = new THREE.PointLight("#ff2a9a", 35, 20, 1.4); luzM.position.set(-4, 8, -28); esc.add(luzM);
+  /* la cabina «videophone» (cyberpunk_station.glb) apoyada en la azotea, justo detrás de los luchadores, como en la referencia.
+     Medidas reales del modelo (con sus transformaciones internas): ~4 m de ancho, 2,4 m de alto, piso en y≈0 (lo más bajo, -0,14,
+     es el cordón de vereda), frente hacia +Z. Las luces van acá y no al terminar de cargar: sumar luces después recompila todo. */
+  const ESC_CAB = 1.4;
+  const luzC = new THREE.PointLight("#40e0ff", 18, 9, 1.6); luzC.position.set(-3.2, 2.6, -1.8); esc.add(luzC);
+  const luzM = new THREE.PointLight("#ff2a9a", 16, 9, 1.6); luzM.position.set(3.4, 2.8, -2.2); esc.add(luzM);
+  loadModel("/juegos/reino-caido/assets/models/cyberpunk_station.glb").then(({ scene: cabina }) => {
+    cabina.scale.setScalar(ESC_CAB);
+    cabina.position.set(-0.4 * ESC_CAB, 0.14 * ESC_CAB + 0.01, -3.75);   // centrada en X (su centro local está en x≈0,4) y con la espalda contra el parapeto
+    cabina.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    esc.add(cabina); window.__estacionLista = true;
+    // el logo de Jakks como grafiti en la base del frente de la cabina
+    const graf = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1.5), new THREE.MeshBasicMaterial({ map: texJakks, transparent: true, color: new THREE.Color(1.6, 1.6, 1.6), toneMapped: false, depthWrite: false }));
+    graf.position.set(1.1, 0.75, -3.75 + 1.2 * ESC_CAB); esc.add(graf);
   }).catch(e => console.warn("[cyber] no pude cargar cyberpunk_station.glb:", e.message));
 
   /* utilería de la azotea */
