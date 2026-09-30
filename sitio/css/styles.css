@@ -312,6 +312,12 @@ img { max-width: 100%; }
     transition: transform 0.9s cubic-bezier(0.2, 0.7, 0.2, 1);
   }
   .svc:hover .svc-scene canvas { transform: scale(1.045); }
+  /* tarjetas con una imagen real en vez de la escena procedural (sección Menúes) */
+  .svc-scene img {
+    position: absolute; inset: 0; width: 100%; height: 100%; display: block; object-fit: cover;
+    transition: transform 0.9s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  .svc:hover .svc-scene img { transform: scale(1.045); }
   .svc-scene::after {
     content: ''; position: absolute; inset: 0; pointer-events: none;
     background: linear-gradient(0deg, var(--panel) 0%, rgba(34, 26, 33, 0) 58%);

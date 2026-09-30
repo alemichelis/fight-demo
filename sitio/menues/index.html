@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Menúes · Daxenworld</title>
+<meta name="description" content="Menúes de videojuego diseñados por Daxenworld: shooter en primera persona, juego de pelea y RPG. Interactivos, para web y mobile.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Unbounded:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --page: #43373F; --page-top: #56474F; --page-deep: #2B2229; --panel: #221A21; --panel-2: #2D232B; --line: rgba(243, 233, 226, 0.09);
+    --text: #F4EAE3; --muted: #C2B2B7; --sun: #F29A4B; --peach: #F7C79B; --mauve: #A585B8; --teal: #46C2B0;
+    --shadow: 0 30px 70px rgba(18, 10, 16, 0.55), 0 6px 18px rgba(18, 10, 16, 0.35);
+    --f-display: 'Unbounded', 'Arial Black', system-ui, sans-serif; --f-body: 'Instrument Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; color: var(--text); font: 400 1rem/1.6 var(--f-body); background: linear-gradient(180deg, var(--page-top) 0%, var(--page) 32%, var(--page-deep) 100%); background-color: var(--page); min-height: 100vh; }
+  a { color: inherit; }
+  :focus-visible { outline: 2px solid var(--peach); outline-offset: 3px; border-radius: 6px; }
+  .wrap { width: min(1240px, calc(100% - 32px)); margin: 0 auto; }
+
+  .topbar { position: sticky; top: 14px; z-index: 10; margin-top: 14px; }
+  .topbar-in { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 12px 10px 20px; background: rgba(34, 26, 33, .74); border: 1px solid var(--line); border-radius: 20px; backdrop-filter: blur(14px); box-shadow: var(--shadow); }
+  .brand { display: flex; align-items: center; gap: 10px; font: 600 .95rem/1 var(--f-display); letter-spacing: .06em; text-decoration: none; }
+  .orb { width: 14px; height: 14px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #FFE0B8, var(--sun) 60%, #9E4524); box-shadow: 0 0 14px rgba(242, 154, 75, .6); }
+  .nav { display: flex; gap: 6px; }
+  .nav a { text-decoration: none; font: 500 .9rem/1 var(--f-body); color: var(--muted); padding: 9px 12px; border-radius: 10px; }
+  .nav a:hover, .nav a[aria-current] { color: var(--text); background: rgba(255, 255, 255, .06); }
+
+  .hero { padding: clamp(56px, 10vh, 110px) 0 40px; }
+  .label { font: 600 .72rem/1.3 var(--f-body); letter-spacing: .22em; text-transform: uppercase; color: var(--muted); }
+  .hero h1 { margin: 14px 0 18px; font: 600 clamp(2.4rem, 6vw, 4.6rem)/1.02 var(--f-display); letter-spacing: -.01em; max-width: 15ch; }
+  .hero h1 em { font-style: normal; color: var(--peach); }
+  .hero p { max-width: 60ch; color: var(--muted); font-size: 1.12rem; margin: 0; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 26px; }
+  .chip { font: 500 .85rem/1 var(--f-body); padding: 9px 14px; border-radius: 999px; border: 1px solid var(--line); background: rgba(34, 26, 33, .5); }
+  .chip b { color: var(--peach); font-weight: 600; }
+
+  /* ---------------------------------------------------------------- cada menú */
+  .menu { padding: 44px 0; border-top: 1px solid var(--line); }
+  .menu-head { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 18px; margin-bottom: 24px; }
+  .menu-head h2 { margin: 6px 0 0; font: 600 clamp(1.7rem, 3.4vw, 2.5rem)/1.05 var(--f-display); }
+  .menu-head p { margin: 10px 0 0; color: var(--muted); max-width: 58ch; }
+  .acciones { display: flex; gap: 10px; flex-wrap: wrap; }
+  .btn { display: inline-flex; align-items: center; gap: 8px; text-decoration: none; font: 600 .92rem/1 var(--f-body); padding: 14px 20px; border-radius: 999px; border: 1px solid var(--line); transition: transform .2s, filter .2s; }
+  .btn:hover { transform: translateY(-2px); }
+  .btn-sun { color: #2B1A10; background: linear-gradient(180deg, #F7B271, var(--sun)); border-color: transparent; box-shadow: 0 10px 30px rgba(242, 154, 75, .35); }
+  .btn-ghost { color: var(--text); background: rgba(34, 26, 33, .5); }
+
+  .escaparate { display: grid; grid-template-columns: 1fr auto; gap: 22px; align-items: center; }
+  /* marco de escritorio: el menú corre en vivo, a 1440×900, achicado al ancho disponible */
+  .pantalla { position: relative; border-radius: 18px; padding: 10px; background: #120d11; border: 1px solid var(--line); box-shadow: var(--shadow); }
+  .pantalla .barra-v { display: flex; gap: 6px; padding: 2px 4px 10px; }
+  .pantalla .barra-v i { width: 9px; height: 9px; border-radius: 50%; background: rgba(255, 255, 255, .14); }
+  .lienzo { position: relative; overflow: hidden; border-radius: 10px; aspect-ratio: 16 / 10; background: #000; }
+  .lienzo iframe { position: absolute; left: 0; top: 0; width: 1440px; height: 900px; border: 0; transform-origin: 0 0; }
+  /* marco de celular: 390×844 */
+  .celu { width: 230px; border-radius: 34px; padding: 10px; background: #0d0a0c; border: 1px solid var(--line); box-shadow: var(--shadow); }
+  .celu .lienzo { aspect-ratio: 390 / 844; border-radius: 26px; }
+  .celu .lienzo iframe { width: 390px; height: 844px; }
+  .celu .muesca { width: 70px; height: 6px; border-radius: 6px; background: #000; margin: 2px auto 8px; }
+  .detalles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 22px; }
+  .detalle { padding: 18px 18px 16px; border-radius: 16px; background: rgba(34, 26, 33, .55); border: 1px solid var(--line); }
+  .detalle b { display: block; font: 600 .95rem/1.3 var(--f-display); margin-bottom: 6px; }
+  .detalle span { color: var(--muted); font-size: .95rem; }
+
+  .motor { margin: 20px 0 70px; padding: clamp(24px, 4vw, 44px); border-radius: 28px; background: linear-gradient(135deg, rgba(165, 133, 184, .18), rgba(70, 194, 176, .1)); border: 1px solid var(--line); display: grid; grid-template-columns: 1.2fr 1fr; gap: 30px; align-items: center; }
+  .motor h2 { margin: 8px 0 12px; font: 600 clamp(1.5rem, 3vw, 2.1rem)/1.1 var(--f-display); }
+  .motor p { margin: 0; color: var(--muted); }
+  .motor ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; }
+  .motor li { padding: 12px 14px; border-radius: 12px; background: rgba(34, 26, 33, .55); border: 1px solid var(--line); }
+  .motor li b { color: var(--peach); font-weight: 600; }
+
+  .foot { padding: 28px 0 40px; border-top: 1px solid var(--line); color: var(--muted); font-size: .9rem; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+  .foot a { text-decoration: none; } .foot a:hover { color: var(--text); }
+
+  @media (max-width: 900px) {
+    .escaparate { grid-template-columns: 1fr; }
+    .celu { justify-self: center; width: 250px; }
+    .detalles { grid-template-columns: 1fr; }
+    .motor { grid-template-columns: 1fr; }
+    .nav a:not([aria-current]) { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .btn { transition: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="topbar"><div class="topbar-in">
+    <a class="brand" href="/"><span class="orb" aria-hidden="true"></span>DAXENWORLD</a>
+    <nav class="nav" aria-label="Secciones"><a href="/">Inicio</a><a href="/juegos">Juegos</a><a href="/menues" aria-current="page">Menúes</a></nav>
+  </div></header>
+
+  <section class="hero">
+    <span class="label">Diseño de interfaces para videojuegos</span>
+    <h1>Menúes que se sienten <em>parte del juego</em></h1>
+    <p>Tres menúes interactivos, uno por género: un shooter en primera persona, un juego de pelea y un RPG. Cada uno se adapta solo a escritorio y a celular, y todos corren sobre escenarios renderizados en el motor de Daxenworld. Probalos acá mismo: son de verdad, no capturas.</p>
+    <div class="chips"><span class="chip"><b>3</b> géneros</span><span class="chip">Web y mobile</span><span class="chip">Teclado, mouse y táctil</span><span class="chip">Fondos del motor Daxenworld</span></div>
+  </section>
+
+  <section class="menu" id="pov">
+    <div class="menu-head">
+      <div><span class="label">01 · Shooter en primera persona</span><h2>Operación TX-03</h2><p>Menú táctico con ficha de misión, arsenal con estadísticas comparadas y el HUD en partida. En celular suma controles táctiles.</p></div>
+      <div class="acciones"><a class="btn btn-sun" href="/menues/pov.html">Abrir en pantalla completa →</a></div>
+    </div>
+    <div class="escaparate">
+      <div class="pantalla"><div class="barra-v"><i></i><i></i><i></i></div><div class="lienzo"><iframe title="Menú POV en escritorio" src="/menues/pov.html" loading="lazy"></iframe></div></div>
+      <div class="celu"><div class="muesca"></div><div class="lienzo"><iframe title="Menú POV en celular" src="/menues/pov.html" loading="lazy"></iframe></div></div>
+    </div>
+    <div class="detalles">
+      <div class="detalle"><b>Inicio con ficha de misión</b><span>Cada opción muestra objetivos, duración y recompensa al pasar por encima.</span></div>
+      <div class="detalle"><b>Arsenal comparado</b><span>Las barras marcan en verde y rojo lo que ganás o perdés contra el arma equipada.</span></div>
+      <div class="detalle"><b>HUD vivo</b><span>Radar, brújula, munición, salud segmentada, marcadores de impacto y feed de bajas.</span></div>
+    </div>
+  </section>
+
+  <section class="menu" id="pelea">
+    <div class="menu-head">
+      <div><span class="label">02 · Juego de pelea</span><h2>Reino Caído</h2><p>Del modo de juego a la selección de luchadores para dos jugadores y la pantalla de versus, con escenario elegible.</p></div>
+      <div class="acciones"><a class="btn btn-sun" href="/menues/pelea.html">Abrir en pantalla completa →</a><a class="btn btn-ghost" href="/juegos/reino-caido">Jugar el juego real</a></div>
+    </div>
+    <div class="escaparate">
+      <div class="pantalla"><div class="barra-v"><i></i><i></i><i></i></div><div class="lienzo"><iframe title="Menú de pelea en escritorio" src="/menues/pelea.html" loading="lazy"></iframe></div></div>
+      <div class="celu"><div class="muesca"></div><div class="lienzo"><iframe title="Menú de pelea en celular" src="/menues/pelea.html" loading="lazy"></iframe></div></div>
+    </div>
+    <div class="detalles">
+      <div class="detalle"><b>Dos cursores</b><span>Jugador 1 en azul y jugador 2 en rojo sobre la misma grilla, con confirmar y deshacer.</span></div>
+      <div class="detalle"><b>Fichas con estadísticas</b><span>Poder, velocidad y técnica de cada luchador, animados al cambiar.</span></div>
+      <div class="detalle"><b>Versus con impacto</b><span>Paneles que entran en diagonal, «VS» que golpea la pantalla y destello final.</span></div>
+    </div>
+  </section>
+
+  <section class="menu" id="rpg">
+    <div class="menu-head">
+      <div><span class="label">03 · RPG</span><h2>Crónicas del Cristal</h2><p>Pantalla principal con la última partida, ficha del héroe con atributos y equipo, e inventario con rarezas y comparación.</p></div>
+      <div class="acciones"><a class="btn btn-sun" href="/menues/rpg.html">Abrir en pantalla completa →</a></div>
+    </div>
+    <div class="escaparate">
+      <div class="pantalla"><div class="barra-v"><i></i><i></i><i></i></div><div class="lienzo"><iframe title="Menú RPG en escritorio" src="/menues/rpg.html" loading="lazy"></iframe></div></div>
+      <div class="celu"><div class="muesca"></div><div class="lienzo"><iframe title="Menú RPG en celular" src="/menues/rpg.html" loading="lazy"></iframe></div></div>
+    </div>
+    <div class="detalles">
+      <div class="detalle"><b>Continuar sin buscar</b><span>La última partida con región, tiempo jugado y la misión en curso.</span></div>
+      <div class="detalle"><b>Atributos que se reparten</b><span>Los puntos libres recalculan vida, maná, crítico y armadura al instante.</span></div>
+      <div class="detalle"><b>Inventario legible</b><span>Colores de rareza, filtros y ficha de cada objeto con la diferencia contra lo equipado.</span></div>
+    </div>
+  </section>
+
+  <section class="motor">
+    <div>
+      <span class="label">Hecho con nuestro motor</span>
+      <h2>Los fondos salen del editor de Daxenworld</h2>
+      <p>Cada escenario es una plantilla del motor: se abre en el editor, se acomoda a mano y se vuelve a renderizar. El mismo método sirve para el menú de tu juego.</p>
+    </div>
+    <ul>
+      <li><b>Menú POV</b> · hangar con la cabina videophone</li>
+      <li><b>Menú de pelea</b> · ring con luces de jugador 1 y 2</li>
+      <li><b>Menú RPG</b> · salón del trono con el cristal</li>
+    </ul>
+  </section>
+
+  <footer class="foot"><span>© 2024–2026 Daxenworld</span><span><a href="/">Volver a Daxenworld</a> · <a href="/#contacto">Quiero un menú así</a></span></footer>
+</div>
+
+<script>
+  // Cada iframe corre el menú a su tamaño real (1440×900 o 390×844) y se achica al ancho del marco.
+  const ajustar = () => document.querySelectorAll(".lienzo").forEach(l => { const f = l.querySelector("iframe"); f.style.transform = `scale(${l.clientWidth / parseFloat(getComputedStyle(f).width)})`; });
+  new ResizeObserver(ajustar).observe(document.body); ajustar();
+</script>
+</body>
+</html>

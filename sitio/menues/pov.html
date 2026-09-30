@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Operación TX-03 · Menú POV · Daxenworld</title>
+<meta name="description" content="Menú de shooter en primera persona: inicio, equipo con estadísticas y HUD en partida. Web y mobile.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Rajdhani:wght@500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cian: #3ee7ff; --cian-2: #0fb4d4; --magenta: #ff3d9a; --ambar: #ffb020; --verde: #5dff9b; --rojo: #ff4b5c;
+    --tinta: #e9f6fb; --apagado: #8fa6b3; --linea: rgba(62, 231, 255, 0.22); --panel: rgba(6, 14, 22, 0.72); --panel-2: rgba(10, 24, 36, 0.82);
+    --f-tit: "Chakra Petch", "Rajdhani", system-ui, sans-serif; --f-ui: "Rajdhani", system-ui, sans-serif; --f-mono: "JetBrains Mono", ui-monospace, monospace;
+    --corte: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px));
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #02060a; color: var(--tinta); font: 500 16px/1.4 var(--f-ui); overflow: hidden; -webkit-font-smoothing: antialiased; }
+  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 0; }
+  :focus-visible { outline: 2px solid var(--cian); outline-offset: 2px; }
+
+  /* ---------------------------------------------------------------- fondo: render del motor + capas de pantalla */
+  .fondo { position: fixed; inset: -3%; background: url(img/fondo-pov.webp) center 40% / cover no-repeat; animation: deriva 28s ease-in-out infinite alternate; filter: saturate(1.1); }
+  @keyframes deriva { from { transform: scale(1.02) translate(0, 0); } to { transform: scale(1.08) translate(-1.2%, -0.8%); } }
+  .velo { position: fixed; inset: 0; pointer-events: none;
+    background: linear-gradient(90deg, rgba(2, 6, 10, 0.92) 0%, rgba(2, 6, 10, 0.55) 38%, rgba(2, 6, 10, 0.15) 62%, rgba(2, 6, 10, 0.55) 100%),
+                radial-gradient(ellipse at 50% 120%, rgba(2, 6, 10, 0.9), transparent 60%); }
+  .scan { position: fixed; inset: 0; pointer-events: none; opacity: 0.35;
+    background: repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.025) 0 1px, transparent 1px 3px); mix-blend-mode: overlay; }
+  .grano { position: fixed; inset: -50%; pointer-events: none; opacity: 0.07;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    animation: grano 0.6s steps(3) infinite; }
+  @keyframes grano { 0% { transform: translate(0, 0); } 33% { transform: translate(-4%, 3%); } 66% { transform: translate(3%, -2%); } }
+
+  /* ---------------------------------------------------------------- estructura */
+  .app { position: relative; z-index: 1; height: 100%; display: grid; grid-template-rows: auto 1fr auto; }
+  .barra { display: flex; align-items: center; gap: 28px; padding: 18px clamp(18px, 4vw, 48px); border-bottom: 1px solid var(--linea);
+    background: linear-gradient(180deg, rgba(2, 8, 14, 0.85), rgba(2, 8, 14, 0.2)); }
+  .marca { display: flex; flex-direction: column; line-height: 1; }
+  .marca b { font: 700 22px/1 var(--f-tit); letter-spacing: 0.14em; }
+  .marca small { font: 500 11px/1 var(--f-mono); letter-spacing: 0.2em; color: var(--cian); margin-top: 6px; }
+  .pestanas { display: flex; align-items: center; gap: 6px; margin: 0 auto; }
+  .pestanas .tecla { font: 600 12px/1 var(--f-mono); color: var(--apagado); border: 1px solid var(--linea); padding: 5px 7px; }
+  .pest { position: relative; padding: 10px 18px; font: 600 15px/1 var(--f-tit); letter-spacing: 0.18em; text-transform: uppercase; color: var(--apagado); transition: color .2s; }
+  .pest:hover { color: var(--tinta); }
+  .pest[aria-selected="true"] { color: var(--tinta); }
+  .pest[aria-selected="true"]::after { content: ""; position: absolute; left: 14px; right: 14px; bottom: -19px; height: 2px; background: var(--cian); box-shadow: 0 0 12px var(--cian); }
+  .jugador { display: flex; align-items: center; gap: 14px; }
+  .emblema { width: 42px; height: 42px; clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%); background: linear-gradient(160deg, var(--cian), #0a3a4a); display: grid; place-items: center; font: 700 15px/1 var(--f-tit); color: #02141c; }
+  .jugador .datos { min-width: 150px; }
+  .jugador .nombre { font: 700 15px/1 var(--f-tit); letter-spacing: 0.08em; }
+  .xp { height: 4px; background: rgba(255, 255, 255, 0.1); margin: 7px 0 5px; }
+  .xp i { display: block; height: 100%; width: 64%; background: linear-gradient(90deg, var(--cian-2), var(--cian)); box-shadow: 0 0 8px var(--cian); }
+  .jugador small { font: 500 11px/1 var(--f-mono); color: var(--apagado); letter-spacing: 0.08em; }
+  .creditos { font: 600 14px/1 var(--f-mono); color: var(--ambar); padding: 8px 12px; border: 1px solid rgba(255, 176, 32, 0.3); }
+
+  main { display: grid; min-height: 0; }
+  .vista { display: none; min-height: 0; }
+  .vista.activa { display: grid; animation: entra .45s cubic-bezier(.2, .8, .2, 1); }
+  @keyframes entra { from { opacity: 0; transform: translateX(-14px); } to { opacity: 1; transform: none; } }
+
+  .pie { display: flex; align-items: center; gap: 22px; padding: 14px clamp(18px, 4vw, 48px); border-top: 1px solid var(--linea); background: rgba(2, 8, 14, 0.6);
+    font: 500 13px/1 var(--f-ui); letter-spacing: 0.08em; color: var(--apagado); text-transform: uppercase; }
+  .pie kbd { font: 600 11px/1 var(--f-mono); color: var(--tinta); border: 1px solid var(--linea); padding: 4px 6px; margin-right: 6px; }
+  .pie .estado { margin-left: auto; display: flex; gap: 8px; align-items: center; color: var(--verde); font-family: var(--f-mono); font-size: 11px; }
+  .pie .estado::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--verde); box-shadow: 0 0 8px var(--verde); animation: late 1.6s infinite; }
+  @keyframes late { 50% { opacity: .35; } }
+  .volver { position: fixed; z-index: 5; left: 50%; bottom: 10px; transform: translateX(-50%); font: 600 11px/1 var(--f-mono); letter-spacing: .12em; color: var(--apagado); text-decoration: none; padding: 7px 10px; border: 1px solid var(--linea); background: rgba(2, 8, 14, .7); }
+  .volver:hover { color: var(--tinta); }
+
+  /* ---------------------------------------------------------------- INICIO */
+  #v-inicio { grid-template-columns: minmax(300px, 460px) 1fr; gap: clamp(20px, 5vw, 80px); padding: clamp(24px, 5vh, 56px) clamp(18px, 4vw, 48px); align-items: center; }
+  .lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+  .opcion { width: 100%; display: grid; grid-template-columns: 44px 1fr auto; align-items: center; gap: 14px; padding: 16px 18px; text-align: left; position: relative;
+    transition: background .2s, padding .25s; clip-path: var(--corte); }
+  .opcion .num { font: 500 13px/1 var(--f-mono); color: var(--apagado); }
+  .opcion .txt { font: 700 clamp(22px, 2.6vw, 30px)/1 var(--f-tit); letter-spacing: 0.08em; text-transform: uppercase; color: rgba(233, 246, 251, 0.62); transition: color .2s; }
+  .opcion .flecha { opacity: 0; color: var(--cian); transition: opacity .2s, transform .2s; transform: translateX(-6px); font: 700 18px/1 var(--f-tit); }
+  .opcion.sel { background: linear-gradient(90deg, rgba(62, 231, 255, 0.18), rgba(62, 231, 255, 0.02)); padding-left: 26px; }
+  .opcion.sel::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--cian); box-shadow: 0 0 14px var(--cian); }
+  .opcion.sel .txt { color: var(--tinta); }
+  .opcion.sel .num { color: var(--cian); }
+  .opcion.sel .flecha { opacity: 1; transform: none; }
+  .opcion .nuevo { font: 700 10px/1 var(--f-mono); color: #02141c; background: var(--ambar); padding: 3px 6px; margin-left: 10px; vertical-align: middle; letter-spacing: .1em; }
+
+  .ficha { align-self: end; justify-self: end; width: min(520px, 100%); background: var(--panel); border: 1px solid var(--linea); clip-path: var(--corte); backdrop-filter: blur(6px); }
+  .ficha .cab { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; border-bottom: 1px solid var(--linea); font: 500 11px/1 var(--f-mono); letter-spacing: .18em; color: var(--cian); }
+  .ficha .cuerpo { padding: 20px 22px 22px; }
+  .ficha h2 { margin: 0 0 6px; font: 700 28px/1.05 var(--f-tit); letter-spacing: .06em; text-transform: uppercase; }
+  .ficha p { margin: 0 0 16px; color: var(--apagado); font-size: 16px; }
+  .objetivos { list-style: none; margin: 0 0 18px; padding: 0; display: grid; gap: 8px; }
+  .objetivos li { display: flex; gap: 10px; align-items: center; font-size: 15px; }
+  .objetivos li::before { content: ""; width: 10px; height: 10px; border: 1.5px solid var(--cian); transform: rotate(45deg); flex: none; }
+  .objetivos li.hecho { color: var(--apagado); text-decoration: line-through; }
+  .objetivos li.hecho::before { background: var(--cian); }
+  .metas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--linea); border: 1px solid var(--linea); }
+  .metas div { background: var(--panel-2); padding: 10px 12px; }
+  .metas small { display: block; font: 500 10px/1 var(--f-mono); letter-spacing: .16em; color: var(--apagado); margin-bottom: 6px; }
+  .metas b { font: 700 18px/1 var(--f-tit); }
+  .boton { display: inline-flex; align-items: center; gap: 10px; margin-top: 18px; padding: 13px 22px; font: 700 14px/1 var(--f-tit); letter-spacing: .2em; text-transform: uppercase;
+    color: #02141c; background: var(--cian); clip-path: var(--corte); box-shadow: 0 0 24px rgba(62, 231, 255, .35); transition: filter .2s; }
+  .boton:hover { filter: brightness(1.12); }
+
+  /* ---------------------------------------------------------------- EQUIPO */
+  #v-equipo { grid-template-columns: 220px minmax(280px, 1fr) minmax(300px, 420px); gap: 18px; padding: 26px clamp(18px, 4vw, 48px); align-items: start; }
+  .cats { display: grid; gap: 4px; }
+  .cat { text-align: left; padding: 14px 16px; border-left: 2px solid transparent; background: rgba(6, 14, 22, .5); }
+  .cat small { display: block; font: 500 10px/1 var(--f-mono); letter-spacing: .18em; color: var(--apagado); margin-bottom: 6px; }
+  .cat b { font: 700 17px/1 var(--f-tit); letter-spacing: .06em; text-transform: uppercase; }
+  .cat[aria-selected="true"] { border-left-color: var(--cian); background: linear-gradient(90deg, rgba(62, 231, 255, .16), rgba(6, 14, 22, .5)); }
+  .armas { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+  .arma { position: relative; text-align: left; padding: 14px 14px 12px; background: var(--panel); border: 1px solid var(--linea); clip-path: var(--corte); transition: border-color .2s, transform .2s; }
+  .arma:hover { transform: translateY(-2px); }
+  .arma[aria-pressed="true"] { border-color: var(--cian); background: linear-gradient(160deg, rgba(62, 231, 255, .18), var(--panel)); }
+  .arma svg { width: 100%; height: 62px; display: block; margin-bottom: 10px; color: var(--tinta); opacity: .9; }
+  .arma b { font: 700 16px/1 var(--f-tit); letter-spacing: .06em; }
+  .arma small { display: block; margin-top: 5px; font: 500 11px/1 var(--f-mono); color: var(--apagado); letter-spacing: .08em; }
+  .arma .equipada { position: absolute; top: 10px; right: 12px; font: 700 9px/1 var(--f-mono); letter-spacing: .14em; color: var(--verde); }
+  .detalle { background: var(--panel); border: 1px solid var(--linea); clip-path: var(--corte); padding: 20px 22px; backdrop-filter: blur(6px); }
+  .detalle h3 { margin: 0; font: 700 26px/1 var(--f-tit); letter-spacing: .06em; text-transform: uppercase; }
+  .detalle .tipo { font: 500 11px/1 var(--f-mono); letter-spacing: .18em; color: var(--cian); margin: 8px 0 18px; }
+  .stat { display: grid; grid-template-columns: 96px 1fr 42px; align-items: center; gap: 12px; margin-bottom: 11px; font-size: 14px; letter-spacing: .06em; text-transform: uppercase; color: var(--apagado); }
+  .stat .pista { position: relative; height: 6px; background: rgba(255, 255, 255, .08); }
+  .stat .val { position: absolute; inset: 0 auto 0 0; background: var(--tinta); transition: width .45s cubic-bezier(.2, .8, .2, 1); }
+  .stat .dif { position: absolute; top: 0; bottom: 0; transition: left .45s, width .45s; }
+  .stat .dif.mas { background: var(--verde); } .stat .dif.menos { background: var(--rojo); }
+  .stat output { text-align: right; font: 600 13px/1 var(--f-mono); color: var(--tinta); }
+  .accesorios { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 18px; }
+  .acc { aspect-ratio: 1; border: 1px dashed var(--linea); display: grid; place-items: center; text-align: center; font: 500 10px/1.2 var(--f-mono); letter-spacing: .1em; color: var(--apagado); padding: 6px; }
+  .acc.lleno { border-style: solid; border-color: rgba(255, 176, 32, .5); color: var(--ambar); background: rgba(255, 176, 32, .06); }
+
+  /* ---------------------------------------------------------------- HUD (vista previa en partida) */
+  #v-hud { position: relative; }
+  .hud { position: absolute; inset: 0; pointer-events: none; font-family: var(--f-mono); }
+  .mira { position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
+  .mira i { position: absolute; background: var(--tinta); box-shadow: 0 0 4px rgba(0, 0, 0, .8); }
+  .mira i:nth-child(1) { left: 21px; top: 0; width: 2px; height: 12px; } .mira i:nth-child(2) { left: 21px; bottom: 0; width: 2px; height: 12px; }
+  .mira i:nth-child(3) { top: 21px; left: 0; width: 12px; height: 2px; } .mira i:nth-child(4) { top: 21px; right: 0; width: 12px; height: 2px; }
+  .mira .impacto { position: absolute; inset: -6px; opacity: 0; }
+  .mira .impacto::before, .mira .impacto::after { content: ""; position: absolute; left: 50%; top: 50%; width: 22px; height: 2px; background: var(--rojo); box-shadow: 0 0 8px var(--rojo); }
+  .mira .impacto::before { transform: translate(-50%, -50%) rotate(45deg); } .mira .impacto::after { transform: translate(-50%, -50%) rotate(-45deg); }
+  .mira.golpe .impacto { animation: golpe .35s ease-out; }
+  @keyframes golpe { from { opacity: 1; transform: scale(1.3); } to { opacity: 0; transform: scale(1); } }
+  .brujula { position: absolute; top: 18px; left: 50%; transform: translateX(-50%); width: min(520px, 70vw); height: 34px; overflow: hidden;
+    mask-image: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent); border-bottom: 1px solid var(--linea); }
+  .brujula .cinta { position: absolute; top: 0; left: 0; display: flex; white-space: nowrap; font-size: 12px; color: var(--apagado); animation: gira 18s linear infinite; }
+  .brujula .cinta span { width: 60px; text-align: center; } .brujula .cinta span.card { color: var(--tinta); font-weight: 700; }
+  .brujula::after { content: ""; position: absolute; left: 50%; bottom: 0; border: 6px solid transparent; border-bottom-color: var(--cian); transform: translateX(-50%); }
+  @keyframes gira { to { transform: translateX(-720px); } }
+  .radar { position: absolute; left: 22px; top: 22px; width: 170px; height: 170px; border-radius: 50%; border: 1px solid var(--linea); background: radial-gradient(circle, rgba(6, 20, 30, .55), rgba(2, 8, 14, .8)); overflow: hidden; }
+  .radar::before { content: ""; position: absolute; inset: 0; background: conic-gradient(from 0deg, rgba(62, 231, 255, .35), transparent 22%); animation: barre 3s linear infinite; }
+  .radar::after { content: ""; position: absolute; inset: 0; background: repeating-radial-gradient(circle, transparent 0 28px, rgba(62, 231, 255, .14) 28px 29px); }
+  @keyframes barre { to { transform: rotate(360deg); } }
+  .radar .yo { position: absolute; left: 50%; top: 50%; width: 0; height: 0; border: 6px solid transparent; border-bottom: 12px solid var(--cian); transform: translate(-50%, -70%); z-index: 1; }
+  .radar .enemigo { position: absolute; width: 7px; height: 7px; border-radius: 50%; background: var(--rojo); box-shadow: 0 0 6px var(--rojo); z-index: 1; animation: late 1.2s infinite; }
+  .bajas { position: absolute; right: 22px; top: 22px; display: grid; gap: 6px; justify-items: end; font-size: 13px; }
+  .bajas div { background: rgba(2, 8, 14, .7); padding: 6px 10px; border-right: 2px solid var(--cian); animation: entraBaja .4s ease-out; }
+  .bajas .tu { color: var(--cian); } .bajas .ellos { color: var(--rojo); }
+  @keyframes entraBaja { from { opacity: 0; transform: translateX(20px); } }
+  .obj { position: absolute; left: 58%; top: 34%; display: grid; justify-items: center; gap: 4px; font-size: 11px; letter-spacing: .14em; color: var(--ambar); animation: flota 2.4s ease-in-out infinite; }
+  .obj::before { content: "A"; width: 26px; height: 26px; display: grid; place-items: center; border: 2px solid var(--ambar); transform: rotate(45deg); font: 700 13px/1 var(--f-tit); }
+  @keyframes flota { 50% { transform: translateY(-5px); } }
+  .vida { position: absolute; left: 22px; bottom: 22px; width: min(320px, 44vw); }
+  .vida .rot { display: flex; justify-content: space-between; font-size: 11px; letter-spacing: .16em; color: var(--apagado); margin-bottom: 6px; }
+  .vida .seg { display: grid; grid-template-columns: repeat(10, 1fr); gap: 3px; }
+  .vida .seg i { height: 10px; background: var(--tinta); transform: skewX(-18deg); transition: background .3s; }
+  .vida .seg i.gastado { background: rgba(255, 255, 255, .12); }
+  .vida .seg.blindaje i { height: 5px; background: var(--cian); margin-top: 4px; }
+  .municion { position: absolute; right: 22px; bottom: 22px; text-align: right; }
+  .municion .cargador { font: 700 58px/0.9 var(--f-tit); } .municion .reserva { font: 600 20px/1 var(--f-tit); color: var(--apagado); }
+  .municion small { display: block; margin-top: 8px; font-size: 11px; letter-spacing: .16em; color: var(--apagado); }
+  .municion .balas { display: flex; gap: 3px; justify-content: flex-end; margin-top: 8px; }
+  .municion .balas i { width: 4px; height: 14px; background: var(--ambar); } .municion .balas i.usada { background: rgba(255, 176, 32, .2); }
+  /* controles táctiles: sólo se ven en mobile (o con «Simular mobile») */
+  .tactil { display: none; }
+  .tactil .palanca { position: absolute; left: 7vw; bottom: 16vh; width: 132px; height: 132px; border-radius: 50%; border: 2px solid rgba(233, 246, 251, .25); background: rgba(2, 8, 14, .35); }
+  .tactil .palanca i { position: absolute; left: 50%; top: 50%; width: 56px; height: 56px; margin: -28px; border-radius: 50%; background: rgba(233, 246, 251, .22); border: 2px solid rgba(233, 246, 251, .5); animation: palanca 3.4s ease-in-out infinite; }
+  @keyframes palanca { 25% { transform: translate(22px, -14px); } 60% { transform: translate(-18px, 10px); } }
+  .tactil .fuego { position: absolute; right: 7vw; bottom: 18vh; width: 88px; height: 88px; border-radius: 50%; background: rgba(255, 75, 92, .25); border: 2px solid rgba(255, 75, 92, .7); display: grid; place-items: center; font: 700 12px/1 var(--f-tit); letter-spacing: .14em; }
+  .tactil .mini { position: absolute; right: calc(7vw + 100px); bottom: 12vh; width: 58px; height: 58px; border-radius: 50%; border: 2px solid rgba(233, 246, 251, .35); background: rgba(2, 8, 14, .35); display: grid; place-items: center; font-size: 10px; letter-spacing: .1em; }
+  .tactil .mini.salto { right: calc(7vw + 24px); bottom: calc(18vh + 100px); }
+
+  /* ---------------------------------------------------------------- MOBILE */
+  @media (max-width: 760px) {
+    html, body { overflow: auto; }
+    .app { height: auto; min-height: 100%; grid-template-rows: auto 1fr auto; }
+    .barra { flex-wrap: wrap; gap: 12px; padding: 14px 16px; }
+    .jugador .datos { display: none; } .creditos { margin-left: auto; }
+    .pestanas { order: 3; width: 100%; margin: 0; justify-content: space-between; } .pestanas .tecla { display: none; }
+    .pest { padding: 10px 6px; font-size: 13px; letter-spacing: .12em; }
+    .pest[aria-selected="true"]::after { bottom: -8px; left: 6px; right: 6px; }
+    #v-inicio { grid-template-columns: 1fr; padding: 18px 16px 90px; align-items: start; }
+    .opcion { padding: 14px 14px; } .opcion .txt { font-size: 22px; }
+    .ficha { justify-self: stretch; }
+    #v-equipo { grid-template-columns: 1fr; padding: 16px 16px 90px; }
+    .cats { grid-auto-flow: column; overflow-x: auto; grid-auto-columns: max-content; }
+    .armas { grid-template-columns: repeat(2, 1fr); }
+    #v-hud { min-height: 78vh; }
+    .radar { width: 110px; height: 110px; left: 12px; top: 12px; } .bajas { right: 12px; top: 12px; font-size: 11px; }
+    .brujula { display: none; }
+    .municion .cargador { font-size: 40px; } .municion { right: 12px; bottom: 12px; } .vida { left: 12px; bottom: 12px; }
+    .tactil { display: block; }
+    .pie { display: none; }
+    .volver { bottom: 14px; }
+  }
+  body.forzar-mobile .tactil { display: block; }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="fondo" aria-hidden="true"></div><div class="velo" aria-hidden="true"></div><div class="scan" aria-hidden="true"></div><div class="grano" aria-hidden="true"></div>
+
+<div class="app">
+  <header class="barra">
+    <div class="marca"><b>OPERACIÓN TX-03</b><small>DAXENWORLD · SHOOTER</small></div>
+    <nav class="pestanas" role="tablist" aria-label="Secciones">
+      <span class="tecla" aria-hidden="true">Q</span>
+      <button class="pest" role="tab" aria-selected="true" data-vista="inicio">Inicio</button>
+      <button class="pest" role="tab" aria-selected="false" data-vista="equipo">Equipo</button>
+      <button class="pest" role="tab" aria-selected="false" data-vista="hud">En partida</button>
+      <span class="tecla" aria-hidden="true">E</span>
+    </nav>
+    <div class="jugador">
+      <div class="emblema" aria-hidden="true">42</div>
+      <div class="datos"><div class="nombre">VK_SPECTRE</div><div class="xp"><i></i></div><small>NIVEL 42 · 6.420 / 10.000 XP</small></div>
+      <div class="creditos" title="Créditos">◈ 12.850</div>
+    </div>
+  </header>
+
+  <main>
+    <!-- INICIO -->
+    <section class="vista activa" id="v-inicio" role="tabpanel" aria-label="Inicio">
+      <ul class="lista" id="lista"></ul>
+      <article class="ficha" aria-live="polite">
+        <div class="cab"><span id="f-codigo">MISIÓN 07 / 12</span><span id="f-zona">DISTRITO TX-03</span></div>
+        <div class="cuerpo">
+          <h2 id="f-titulo">Señal en la cabina</h2>
+          <p id="f-texto">Una transmisión cifrada sale de la cabina videophone del distrito. Aseguren la zona antes de que llegue el convoy.</p>
+          <ul class="objetivos" id="f-obj"></ul>
+          <div class="metas" id="f-metas"></div>
+          <button class="boton" id="f-accion">Desplegar <span aria-hidden="true">▶</span></button>
+        </div>
+      </article>
+    </section>
+
+    <!-- EQUIPO -->
+    <section class="vista" id="v-equipo" role="tabpanel" aria-label="Equipo">
+      <div class="cats" role="tablist" aria-label="Ranuras" id="cats"></div>
+      <div class="armas" id="armas"></div>
+      <aside class="detalle" aria-live="polite">
+        <h3 id="d-nombre">—</h3>
+        <div class="tipo" id="d-tipo">—</div>
+        <div id="stats"></div>
+        <div class="accesorios" id="acc"></div>
+        <button class="boton" id="equipar">Equipar</button>
+      </aside>
+    </section>
+
+    <!-- EN PARTIDA -->
+    <section class="vista" id="v-hud" role="tabpanel" aria-label="HUD en partida">
+      <div class="hud">
+        <div class="brujula"><div class="cinta" id="cinta"></div></div>
+        <div class="radar"><span class="yo"></span><span class="enemigo" style="left:30%;top:28%"></span><span class="enemigo" style="left:66%;top:40%"></span><span class="enemigo" style="left:58%;top:72%"></span></div>
+        <div class="bajas" id="bajas"></div>
+        <div class="obj">DEFENDER · 48 M</div>
+        <div class="mira" id="mira"><i></i><i></i><i></i><i></i><span class="impacto"></span></div>
+        <div class="vida"><div class="rot"><span>SALUD</span><span id="salud">80</span></div><div class="seg" id="segVida"></div><div class="seg blindaje" id="segBlindaje"></div></div>
+        <div class="municion"><span class="cargador" id="cargador">24</span> <span class="reserva">/ 120</span><div class="balas" id="balas"></div><small>K-47 · AUTOMÁTICO</small></div>
+        <div class="tactil" aria-hidden="true"><div class="palanca"><i></i></div><div class="fuego">FUEGO</div><div class="mini">RECARGA</div><div class="mini salto">SALTO</div></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="pie">
+    <span><kbd>↑↓</kbd>Navegar</span><span><kbd>Enter</kbd>Elegir</span><span><kbd>Q E</kbd>Secciones</span><span><kbd>M</kbd>Simular mobile</span>
+    <span class="estado">SERVIDOR · 24 MS</span>
+  </footer>
+</div>
+<a class="volver" href="./">← MENÚES</a>
+
+<script>
+  const $ = s => document.querySelector(s);
+
+  /* ---------------------------------------------------------------- pestañas */
+  const pestanas = [...document.querySelectorAll(".pest")];
+  function ir(nombre) {
+    pestanas.forEach(p => p.setAttribute("aria-selected", p.dataset.vista === nombre));
+    document.querySelectorAll(".vista").forEach(v => v.classList.toggle("activa", v.id === "v-" + nombre));
+  }
+  pestanas.forEach(p => p.addEventListener("click", () => ir(p.dataset.vista)));
+  const actual = () => pestanas.findIndex(p => p.getAttribute("aria-selected") === "true");
+
+  /* ---------------------------------------------------------------- inicio */
+  const OPCIONES = [
+    { t: "Campaña", cod: "MISIÓN 07 / 12", zona: "DISTRITO TX-03", tit: "Señal en la cabina", txt: "Una transmisión cifrada sale de la cabina videophone del distrito. Aseguren la zona antes de que llegue el convoy.",
+      obj: [["Infiltrar el distrito", true], ["Hackear la cabina videophone", false], ["Resistir hasta la extracción", false]], metas: [["DIFICULTAD", "VETERANO"], ["DURACIÓN", "~18 MIN"], ["RECOMPENSA", "◈ 1.200"]], acc: "Desplegar" },
+    { t: "Multijugador", nuevo: true, cod: "LISTA DE JUEGO", zona: "TEMPORADA 3", tit: "Dominio nocturno", txt: "6 contra 6 en los techos del distrito. Capturá los tres puntos y mantené la señal viva.",
+      obj: [["Capturar A, B y C", false], ["Primero en llegar a 200", false]], metas: [["JUGADORES", "12.408"], ["ESPERA", "~0:24"], ["MODO", "6 VS 6"]], acc: "Buscar partida" },
+    { t: "Operaciones", cod: "COOPERATIVO", zona: "ESCUADRÓN DE 4", tit: "Apagón total", txt: "Oleadas de drones cada vez más duras. Sobrevivan 20 rondas para desbloquear el camuflaje Neón.",
+      obj: [["Sobrevivir 20 rondas", false], ["Sin caídas de escuadrón", false]], metas: [["RÉCORD", "RONDA 14"], ["AMIGOS", "3 EN LÍNEA"], ["PREMIO", "CAMUFLAJE"]], acc: "Armar escuadrón" },
+    { t: "Equipo", cod: "ARSENAL", zona: "4 RANURAS", tit: "Tu carga", txt: "Elegí arma principal, secundaria y equipamiento. Los accesorios se desbloquean subiendo de nivel cada arma.",
+      obj: [["Arma principal: K-47", true], ["Mira holográfica equipada", true]], metas: [["ARMAS", "18 / 32"], ["ACCESORIOS", "46"], ["CAMUFLAJES", "11"]], acc: "Abrir equipo", ir: "equipo" },
+    { t: "Opciones", cod: "AJUSTES", zona: "PC · MOBILE", tit: "Controles y gráficos", txt: "Sensibilidad, campo de visión, calidad gráfica, accesibilidad y controles táctiles para mobile.",
+      obj: [["Campo de visión 90°", true], ["Subtítulos activados", true]], metas: [["CALIDAD", "ULTRA"], ["FPS", "144"], ["AUDIO", "ESPACIAL"]], acc: "Abrir ajustes" }
+  ];
+  let sel = 0;
+  const lista = $("#lista");
+  lista.innerHTML = OPCIONES.map((o, i) => `<li><button class="opcion" data-i="${i}"><span class="num">0${i + 1}</span><span class="txt">${o.t}${o.nuevo ? '<span class="nuevo">NUEVO</span>' : ""}</span><span class="flecha" aria-hidden="true">▶</span></button></li>`).join("");
+  const botones = [...lista.querySelectorAll(".opcion")];
+  function elegir(i) {
+    sel = (i + OPCIONES.length) % OPCIONES.length;
+    botones.forEach((b, k) => b.classList.toggle("sel", k === sel));
+    const o = OPCIONES[sel];
+    $("#f-codigo").textContent = o.cod; $("#f-zona").textContent = o.zona; $("#f-titulo").textContent = o.tit; $("#f-texto").textContent = o.txt;
+    $("#f-obj").innerHTML = o.obj.map(([t, h]) => `<li class="${h ? "hecho" : ""}">${t}</li>`).join("");
+    $("#f-metas").innerHTML = o.metas.map(([k, v]) => `<div><small>${k}</small><b>${v}</b></div>`).join("");
+    $("#f-accion").innerHTML = `${o.acc} <span aria-hidden="true">▶</span>`;
+  }
+  botones.forEach((b, i) => { b.addEventListener("mouseenter", () => elegir(i)); b.addEventListener("focus", () => elegir(i)); b.addEventListener("click", () => { elegir(i); activar(); }); });
+  function activar() { const o = OPCIONES[sel]; if (o.ir) ir(o.ir); else $("#f-accion").animate([{ filter: "brightness(1.8)" }, { filter: "none" }], 350); }
+  $("#f-accion").addEventListener("click", activar);
+  elegir(0);
+
+  /* ---------------------------------------------------------------- equipo */
+  const ARMA = (n, tipo, s, svg) => ({ n, tipo, s, svg });
+  const rifle = '<svg viewBox="0 0 200 60" fill="currentColor"><path d="M8 30h26l6-8h62l4 4h40v6h-40l-6 8h-18l-4 16H62l6-16H40l-6 6H8z" opacity=".95"/><rect x="146" y="26" width="46" height="4"/><rect x="70" y="14" width="30" height="8" rx="2"/></svg>';
+  const smg = '<svg viewBox="0 0 200 60" fill="currentColor"><path d="M30 26h90l6 6h30v6h-30l-8 6h-20l-4 14H78l4-14H56l-6 8H30z"/><rect x="150" y="30" width="34" height="3"/><rect x="84" y="16" width="24" height="8" rx="2"/></svg>';
+  const sniper = '<svg viewBox="0 0 200 60" fill="currentColor"><path d="M4 32h30l8-6h70l4 4h76v4h-76l-6 6h-22l-4 14H70l6-14H44l-8 6H4z"/><rect x="60" y="12" width="46" height="9" rx="4"/></svg>';
+  const pistola = '<svg viewBox="0 0 200 60" fill="currentColor"><path d="M60 20h78v10H98l-4 6h-8l-6 18H64l8-22-12-2z"/></svg>';
+  const granada = '<svg viewBox="0 0 200 60" fill="currentColor"><circle cx="100" cy="34" r="18"/><rect x="94" y="8" width="12" height="10"/><path d="M106 12h18v4h-18z"/></svg>';
+  const CATS = {
+    primaria: { t: "Primaria", armas: [ARMA("K-47", "RIFLE DE ASALTO", [74, 62, 70, 58, 55], rifle), ARMA("VEKTOR", "SUBFUSIL", [58, 38, 88, 72, 84], smg), ARMA("LANZA", "FRANCOTIRADOR", [96, 94, 24, 40, 30], sniper), ARMA("M-19", "RIFLE TÁCTICO", [80, 72, 50, 66, 48], rifle)] },
+    secundaria: { t: "Secundaria", armas: [ARMA("P-9", "PISTOLA", [42, 34, 70, 80, 92], pistola), ARMA("MAGNUM", "REVÓLVER", [78, 46, 30, 42, 88], pistola)] },
+    tactico: { t: "Táctico", armas: [ARMA("FLASH", "ATURDIDORA", [10, 30, 60, 90, 95], granada), ARMA("PULSO", "EMP", [20, 40, 50, 80, 90], granada)] },
+    letal: { t: "Letal", armas: [ARMA("FRAG", "GRANADA", [90, 40, 30, 70, 90], granada), ARMA("C4", "EXPLOSIVO", [98, 20, 10, 60, 80], granada)] }
+  };
+  const NOMBRES = ["Daño", "Alcance", "Cadencia", "Control", "Movilidad"];
+  const equipado = { primaria: 0, secundaria: 0, tactico: 0, letal: 0 };
+  let cat = "primaria", elegida = 0;
+  $("#cats").innerHTML = Object.entries(CATS).map(([k, c]) => `<button class="cat" role="tab" data-cat="${k}" aria-selected="${k === cat}"><small>RANURA</small><b>${c.t}</b></button>`).join("");
+  $("#cats").addEventListener("click", e => { const b = e.target.closest(".cat"); if (!b) return; cat = b.dataset.cat; elegida = equipado[cat]; pintarEquipo(); });
+  function pintarEquipo() {
+    document.querySelectorAll(".cat").forEach(b => b.setAttribute("aria-selected", b.dataset.cat === cat));
+    const c = CATS[cat];
+    $("#armas").innerHTML = c.armas.map((a, i) => `<button class="arma" data-i="${i}" aria-pressed="${i === elegida}">${a.svg}<b>${a.n}</b><small>${a.tipo}</small>${i === equipado[cat] ? '<span class="equipada">EQUIPADA</span>' : ""}</button>`).join("");
+    const a = c.armas[elegida], base = c.armas[equipado[cat]];
+    $("#d-nombre").textContent = a.n; $("#d-tipo").textContent = a.tipo + (elegida === equipado[cat] ? " · EQUIPADA" : " · COMPARANDO");
+    $("#stats").innerHTML = NOMBRES.map((n, k) => {
+      const v = a.s[k], b = base.s[k], mas = v > b;
+      const dif = v === b ? "" : `<span class="dif ${mas ? "mas" : "menos"}" style="left:${Math.min(v, b)}%;width:${Math.abs(v - b)}%"></span>`;
+      return `<div class="stat"><span>${n}</span><span class="pista"><span class="val" style="width:${Math.min(v, b)}%"></span>${dif}</span><output>${v}</output></div>`;
+    }).join("");
+    const ACC = cat === "primaria" ? [["ÓPTICA", "HOLO 2X"], ["CAÑÓN", "SUPRESOR"], ["CARGADOR", ""], ["EMPUÑADURA", "VERTICAL"]] : [["ÓPTICA", ""], ["CAÑÓN", ""], ["CARGADOR", "EXTENDIDO"], ["LÁSER", ""]];
+    $("#acc").innerHTML = ACC.map(([k, v]) => `<div class="acc ${v ? "lleno" : ""}">${k}<br>${v || "+"}</div>`).join("");
+    $("#equipar").textContent = elegida === equipado[cat] ? "Equipada" : "Equipar";
+  }
+  $("#armas").addEventListener("click", e => { const b = e.target.closest(".arma"); if (!b) return; elegida = +b.dataset.i; pintarEquipo(); });
+  $("#equipar").addEventListener("click", () => { equipado[cat] = elegida; pintarEquipo(); });
+  pintarEquipo();
+
+  /* ---------------------------------------------------------------- HUD vivo */
+  const rumbos = ["N", "15", "30", "NE", "60", "75", "E", "105", "120", "SE", "150", "165", "S", "195", "210", "SO", "240", "255", "O", "285", "300", "NO", "330", "345"];
+  $("#cinta").innerHTML = [...rumbos, ...rumbos].map(r => `<span class="${/^[A-Z]+$/.test(r) ? "card" : ""}">${r}</span>`).join("");
+  let salud = 8, cargador = 24;
+  const pintarVida = () => {
+    $("#segVida").innerHTML = Array.from({ length: 10 }, (_, i) => `<i class="${i >= salud ? "gastado" : ""}"></i>`).join("");
+    $("#segBlindaje").innerHTML = Array.from({ length: 10 }, (_, i) => `<i class="${i >= 6 ? "gastado" : ""}"></i>`).join("");
+    $("#salud").textContent = salud * 10;
+  };
+  const pintarBalas = () => { $("#cargador").textContent = cargador; $("#balas").innerHTML = Array.from({ length: 24 }, (_, i) => `<i class="${i >= cargador ? "usada" : ""}"></i>`).join(""); };
+  pintarVida(); pintarBalas();
+  const FEED = [["VK_SPECTRE", "RIFT", "tu"], ["NOVA_77", "VK_SPECTRE", "ellos"], ["VK_SPECTRE", "HEX-9", "tu"], ["ORBITA", "KOI", "ellos"]];
+  let f = 0;
+  setInterval(() => {
+    if (!$("#v-hud").classList.contains("activa")) return;
+    cargador = cargador > 3 ? cargador - 3 : 24; pintarBalas();
+    $("#mira").classList.remove("golpe"); void $("#mira").offsetWidth; $("#mira").classList.add("golpe");
+    if (Math.random() < 0.45) { const [a, b, k] = FEED[f++ % FEED.length]; const d = document.createElement("div"); d.innerHTML = `<span class="${k === "tu" ? "tu" : "ellos"}">${a}</span> ⟶ ${b}`; $("#bajas").prepend(d); while ($("#bajas").children.length > 4) $("#bajas").lastChild.remove(); }
+    if (Math.random() < 0.3) { salud = salud > 3 ? salud - 1 : 10; pintarVida(); }
+  }, 900);
+
+  /* ---------------------------------------------------------------- teclado */
+  addEventListener("keydown", e => {
+    const k = e.key.toLowerCase();
+    if (k === "q") ir(pestanas[(actual() + pestanas.length - 1) % pestanas.length].dataset.vista);
+    else if (k === "e") ir(pestanas[(actual() + 1) % pestanas.length].dataset.vista);
+    else if (k === "m") document.body.classList.toggle("forzar-mobile");
+    else if ($("#v-inicio").classList.contains("activa")) {
+      if (e.key === "ArrowDown") { e.preventDefault(); elegir(sel + 1); }
+      else if (e.key === "ArrowUp") { e.preventDefault(); elegir(sel - 1); }
+      else if (e.key === "Enter") activar();
+    }
+  });
+</script>
+</body>
+</html>

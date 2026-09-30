@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Reino Caído · Menú de pelea · Daxenworld</title>
+<meta name="description" content="Menú de juego de lucha: modo, selección de luchadores para dos jugadores y pantalla de versus. Web y mobile.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --p1: #2fa8ff; --p1-2: #0b4f8a; --p2: #ff3a4a; --p2-2: #8a0f1c; --oro: #ffd25a; --tinta: #f6f1ea; --apagado: #9c97a6;
+    --f-disp: "Bebas Neue", Impact, "Arial Narrow", sans-serif; --f-ui: "Barlow Condensed", "Arial Narrow", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #050409; color: var(--tinta); font: 600 17px/1.3 var(--f-ui); overflow: hidden; -webkit-font-smoothing: antialiased; }
+  button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+  :focus-visible { outline: 3px solid var(--oro); outline-offset: 2px; }
+
+  .fondo { position: fixed; inset: 0; background: url(img/fondo-pelea.webp) center 60% / cover no-repeat; filter: saturate(1.15) brightness(.75); }
+  .velo { position: fixed; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 40%, transparent 30%, rgba(5, 4, 9, .85) 85%), linear-gradient(180deg, rgba(5, 4, 9, .6), transparent 30%, transparent 60%, rgba(5, 4, 9, .92)); }
+  .rayas { position: fixed; inset: 0; pointer-events: none; opacity: .5;
+    background: repeating-linear-gradient(115deg, rgba(255, 255, 255, .02) 0 2px, transparent 2px 22px); }
+
+  .app { position: relative; z-index: 1; height: 100%; display: grid; grid-template-rows: auto 1fr; }
+  .cab { display: flex; align-items: center; gap: 22px; padding: 16px clamp(16px, 3vw, 40px); }
+  .logo { font: 400 34px/0.9 var(--f-disp); letter-spacing: .04em; }
+  .logo span { color: var(--oro); }
+  .pasos { display: flex; gap: 6px; margin: 0 auto; }
+  .paso { display: flex; align-items: center; gap: 8px; padding: 8px 16px; font: 700 14px/1 var(--f-ui); letter-spacing: .2em; text-transform: uppercase; color: var(--apagado);
+    clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%); background: rgba(255, 255, 255, .05); }
+  .paso b { font: 400 20px/1 var(--f-disp); }
+  .paso.activo { color: #140c02; background: var(--oro); }
+  .paso.hecho { color: var(--tinta); }
+  .monedas { font: 700 14px/1 var(--f-ui); letter-spacing: .2em; color: var(--apagado); }
+  .monedas b { color: var(--oro); }
+
+  main { display: grid; min-height: 0; }
+  .escena { display: none; min-height: 0; }
+  .escena.activa { display: grid; }
+
+  /* ---------------------------------------------------------------- 1 · MODO */
+  #e-modo { place-items: center; }
+  .modos { display: grid; grid-template-columns: repeat(3, minmax(0, 260px)); gap: 16px; padding: 0 16px; }
+  .modo { position: relative; height: min(52vh, 420px); text-align: left; padding: 22px; display: flex; flex-direction: column; justify-content: flex-end; overflow: hidden;
+    clip-path: polygon(0 0, 100% 0, 100% calc(100% - 26px), calc(100% - 26px) 100%, 0 100%);
+    background: linear-gradient(180deg, rgba(20, 16, 30, .3), rgba(10, 8, 16, .95)), var(--arte); transition: transform .25s cubic-bezier(.2, .8, .2, 1), filter .25s; filter: saturate(.6) brightness(.8); }
+  .modo::before { content: ""; position: absolute; inset: 0; border: 2px solid transparent; transition: border-color .2s; clip-path: inherit; }
+  .modo.sel { transform: translateY(-10px) scale(1.03); filter: none; }
+  .modo.sel::before { border-color: var(--oro); }
+  .modo .etq { font: 700 12px/1 var(--f-ui); letter-spacing: .26em; color: var(--oro); }
+  .modo h2 { margin: 8px 0 6px; font: 400 58px/.85 var(--f-disp); letter-spacing: .02em; }
+  .modo p { margin: 0; color: #cfc8d8; font-weight: 500; font-size: 16px; }
+  .modo .deco { position: absolute; top: 16px; right: 18px; font: 400 96px/1 var(--f-disp); color: rgba(255, 255, 255, .06); }
+  .modo { background: linear-gradient(180deg, rgba(14, 11, 22, .72) 0%, rgba(8, 6, 13, .97) 62%), var(--arte), #0b0912; }
+  .modo .arte { position: absolute; left: 0; right: 0; top: 8%; height: 58%; display: flex; justify-content: center; align-items: flex-end; gap: 0; pointer-events: none; transition: transform .35s cubic-bezier(.2, .8, .2, 1); }
+  .modo .arte svg { height: 100%; }
+  .modo.sel .arte { transform: scale(1.06); }
+  .modo .arte .p1 { color: var(--p1); filter: drop-shadow(0 0 18px var(--p1)); }
+  .modo .arte .p2 { color: var(--p2); filter: drop-shadow(0 0 18px var(--p2)); transform: scaleX(-1); }
+  .modo .arte .oro { color: var(--oro); filter: drop-shadow(0 0 18px rgba(255, 210, 90, .7)); }
+  .modo .arte .sombra { color: rgba(255, 255, 255, .12); height: 78%; }
+  .modo h2, .modo p, .modo .etq { position: relative; }
+  body[data-escena="seleccion"] .fondo { filter: saturate(.9) brightness(.38) blur(3px); }
+  .fondo { transition: filter .5s; }
+
+  /* ---------------------------------------------------------------- 2 · LUCHADORES */
+  #e-seleccion { grid-template-columns: 1fr minmax(0, 560px) 1fr; grid-template-rows: 1fr auto; align-items: end; padding: 0 clamp(8px, 2vw, 24px) 16px; gap: 0 16px; }
+  .ficha { position: relative; height: 100%; min-height: 0; display: flex; flex-direction: column; justify-content: flex-end; padding-bottom: 12px; }
+  .ficha.p2 { text-align: right; align-items: flex-end; }
+  .ficha .figura { position: absolute; inset: 4% 0 90px; display: flex; justify-content: center; align-items: flex-end; pointer-events: none; }
+  .ficha .figura svg { height: 100%; max-height: 520px; filter: drop-shadow(0 0 30px var(--brillo)); transition: color .3s; animation: respira 2.6s ease-in-out infinite; }
+  .ficha.p2 .figura svg { transform: scaleX(-1); animation-name: respira2; }
+  @keyframes respira { 50% { transform: translateY(-6px); } }
+  @keyframes respira2 { 0%, 100% { transform: scaleX(-1); } 50% { transform: scaleX(-1) translateY(-6px); } }
+  .ficha .jug { position: relative; font: 800 14px/1 var(--f-ui); letter-spacing: .3em; }
+  .ficha.p1 .jug { color: var(--p1); } .ficha.p2 .jug { color: var(--p2); }
+  .ficha .nombre { position: relative; font: 400 clamp(48px, 7vw, 96px)/.85 var(--f-disp); letter-spacing: .02em; text-shadow: 0 6px 30px rgba(0, 0, 0, .7); }
+  .ficha .estilo { position: relative; font-weight: 600; color: #cfc8d8; letter-spacing: .12em; text-transform: uppercase; font-size: 14px; margin: 4px 0 12px; }
+  .barras { position: relative; display: grid; gap: 7px; width: min(260px, 100%); }
+  .barra { display: grid; grid-template-columns: 78px 1fr; align-items: center; gap: 10px; font: 700 12px/1 var(--f-ui); letter-spacing: .2em; color: var(--apagado); }
+  .ficha.p2 .barra { grid-template-columns: 1fr 78px; } .ficha.p2 .barra span:first-child { order: 2; }
+  .barra i { height: 6px; background: rgba(255, 255, 255, .1); position: relative; }
+  .barra i b { position: absolute; inset: 0 auto 0 0; transition: width .4s cubic-bezier(.2, .8, .2, 1); }
+  .ficha.p2 .barra i b { left: auto; right: 0; }
+  .ficha.p1 .barra i b { background: var(--p1); } .ficha.p2 .barra i b { background: var(--p2); }
+  .listo { position: relative; margin-top: 12px; font: 400 32px/1 var(--f-disp); letter-spacing: .06em; color: var(--oro); opacity: 0; transform: scale(1.4); transition: all .25s cubic-bezier(.2, .8, .2, 1.4); }
+  .ficha.confirmado .listo { opacity: 1; transform: none; }
+
+  .centro { display: grid; gap: 12px; align-self: end; }
+  .grilla { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+  .celda { position: relative; aspect-ratio: 3 / 4; overflow: hidden; background: linear-gradient(180deg, var(--c2), var(--c1)); clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%); transition: transform .15s; }
+  .celda svg { position: absolute; left: 50%; bottom: -6%; height: 108%; transform: translateX(-50%); color: rgba(8, 6, 14, .85); }
+  .celda .n { position: absolute; left: 0; right: 0; bottom: 0; padding: 14px 4px 4px; font: 400 17px/1 var(--f-disp); letter-spacing: .06em; text-align: center; background: linear-gradient(0deg, rgba(0, 0, 0, .75), transparent); }
+  .celda .marca { position: absolute; top: 4px; font: 800 11px/1 var(--f-ui); padding: 3px 5px; letter-spacing: .1em; display: none; }
+  .celda .marca.m1 { left: 8px; background: var(--p1); } .celda .marca.m2 { right: 8px; background: var(--p2); }
+  .celda.en1 { box-shadow: inset 0 0 0 3px var(--p1); } .celda.en2 { box-shadow: inset 0 0 0 3px var(--p2); } .celda.en1.en2 { box-shadow: inset 0 0 0 3px var(--p1), inset 0 0 0 6px var(--p2); }
+  .celda.en1 .m1, .celda.en2 .m2 { display: block; }
+  .celda:hover { transform: translateY(-3px); }
+  .celda.azar { background: repeating-linear-gradient(45deg, #2a2438 0 10px, #221d2e 10px 20px); display: grid; place-items: center; }
+  .celda.azar b { font: 400 54px/1 var(--f-disp); color: var(--oro); }
+  .escenarios { display: flex; align-items: center; gap: 10px; justify-content: center; font: 700 13px/1 var(--f-ui); letter-spacing: .22em; color: var(--apagado); text-transform: uppercase; }
+  .escenarios button { width: 34px; height: 34px; border: 1px solid rgba(255, 255, 255, .2); font: 400 20px/1 var(--f-disp); }
+  .escenarios b { min-width: 200px; text-align: center; font: 400 26px/1 var(--f-disp); letter-spacing: .08em; color: var(--tinta); }
+  .luchar { justify-self: center; padding: 14px 54px; font: 400 32px/1 var(--f-disp); letter-spacing: .1em; color: #140c02; background: var(--oro); clip-path: polygon(14px 0, 100% 0, calc(100% - 14px) 100%, 0 100%);
+    opacity: .35; pointer-events: none; transition: opacity .2s, transform .2s; }
+  .luchar.ok { opacity: 1; pointer-events: auto; animation: late 1s ease-in-out infinite; }
+  @keyframes late { 50% { transform: scale(1.05); } }
+  .ayuda { grid-column: 1 / -1; display: flex; justify-content: center; gap: 22px; padding-top: 10px; font: 600 13px/1 var(--f-ui); letter-spacing: .14em; color: var(--apagado); text-transform: uppercase; }
+  .ayuda kbd { font: 700 11px/1 var(--f-ui); color: var(--tinta); border: 1px solid rgba(255, 255, 255, .25); padding: 3px 6px; margin-right: 6px; }
+
+  /* ---------------------------------------------------------------- 3 · VERSUS */
+  #e-vs { position: relative; overflow: hidden; }
+  .mitad { position: absolute; top: 0; bottom: 0; width: 62%; display: flex; flex-direction: column; justify-content: center; padding: 0 6vw; overflow: hidden; }
+  .mitad.a { left: 0; background: linear-gradient(120deg, var(--p1-2), #061426 70%); clip-path: polygon(0 0, 100% 0, 78% 100%, 0 100%); transform: translateX(-100%); }
+  .mitad.b { right: 0; background: linear-gradient(240deg, var(--p2-2), #200509 70%); clip-path: polygon(22% 0, 100% 0, 100% 100%, 0 100%); transform: translateX(100%); text-align: right; align-items: flex-end; }
+  .mitad svg { position: absolute; bottom: -4%; height: 104%; opacity: .95; }
+  .mitad.a svg { right: 20%; color: rgba(47, 168, 255, .9); filter: drop-shadow(0 0 40px var(--p1)); }
+  .mitad.b svg { left: 20%; color: rgba(255, 58, 74, .9); filter: drop-shadow(0 0 40px var(--p2)); transform: scaleX(-1); }
+  .mitad .quien { position: relative; font: 800 18px/1 var(--f-ui); letter-spacing: .4em; }
+  .mitad .nom { position: relative; font: 400 clamp(64px, 11vw, 170px)/.85 var(--f-disp); text-shadow: 0 10px 40px rgba(0, 0, 0, .6); }
+  #e-vs.corre .mitad { animation: entraMitad .55s cubic-bezier(.2, .9, .2, 1) forwards; }
+  @keyframes entraMitad { to { transform: none; } }
+  .vs { position: absolute; left: 50%; top: 50%; font: 400 clamp(120px, 20vw, 280px)/1 var(--f-disp); color: var(--oro); text-shadow: 0 0 60px rgba(255, 210, 90, .7), 6px 6px 0 #140c02;
+    transform: translate(-50%, -50%) scale(4); opacity: 0; }
+  #e-vs.corre .vs { animation: golpeVs .5s .5s cubic-bezier(.3, 1.6, .5, 1) forwards, tiembla .3s 1s 2; }
+  @keyframes golpeVs { to { transform: translate(-50%, -50%) scale(1); opacity: 1; } }
+  @keyframes tiembla { 25% { margin-left: -8px; } 75% { margin-left: 8px; } }
+  .destello { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; }
+  #e-vs.corre .destello { animation: destello .45s .95s ease-out; }
+  @keyframes destello { from { opacity: .85; } to { opacity: 0; } }
+  .lugar { position: absolute; left: 50%; bottom: 8vh; transform: translateX(-50%); text-align: center; font: 700 14px/1.4 var(--f-ui); letter-spacing: .3em; color: var(--apagado); text-transform: uppercase; opacity: 0; }
+  .lugar b { display: block; font: 400 38px/1 var(--f-disp); letter-spacing: .1em; color: var(--tinta); }
+  #e-vs.corre .lugar { animation: aparece .4s 1.4s forwards; }
+  @keyframes aparece { to { opacity: 1; } }
+  .otra { position: absolute; right: 24px; top: 20px; z-index: 3; padding: 10px 18px; font: 700 13px/1 var(--f-ui); letter-spacing: .2em; text-transform: uppercase; border: 1px solid rgba(255, 255, 255, .3); background: rgba(0, 0, 0, .4); }
+
+  .volver { position: fixed; z-index: 5; left: 14px; bottom: 14px; font: 700 12px/1 var(--f-ui); letter-spacing: .2em; color: var(--apagado); text-decoration: none; padding: 8px 12px; border: 1px solid rgba(255, 255, 255, .18); background: rgba(5, 4, 9, .7); }
+  .volver:hover { color: var(--tinta); }
+
+  /* ---------------------------------------------------------------- MOBILE */
+  @media (max-width: 760px) {
+    html, body { overflow: auto; }
+    .app { height: auto; min-height: 100%; }
+    .cab { flex-wrap: wrap; gap: 10px; padding: 12px 14px; }
+    .monedas { margin-left: auto; }
+    .pasos { order: 3; width: 100%; margin: 0; } .paso { flex: 1; justify-content: center; padding: 8px 6px; font-size: 11px; letter-spacing: .12em; } .paso span { display: none; }
+    .modos { grid-template-columns: 1fr; width: 100%; padding: 8px 14px 70px; } .modo { height: 150px; } .modo h2 { font-size: 44px; } .modo .deco { font-size: 70px; }
+    .modo.sel { transform: none; }
+    .modo .arte { left: auto; right: 8px; width: 46%; top: 12px; height: calc(100% - 12px); justify-content: flex-end; } .modo .deco { display: none; }
+    #e-seleccion { grid-template-columns: 1fr 1fr; grid-template-rows: auto auto auto; padding: 4px 12px 70px; gap: 10px; }
+    .ficha { height: 250px; } .ficha .figura { inset: 0 0 70px; } .ficha .nombre { font-size: 40px; } .barras { display: none; }
+    .centro { grid-column: 1 / -1; order: 3; }
+    .grilla { grid-template-columns: repeat(4, 1fr); }
+    .ayuda { display: none; }
+    #e-vs { min-height: 88vh; }
+    .mitad { width: 100%; height: 50%; padding: 0 8vw; } .mitad.a { top: 0; bottom: auto; clip-path: polygon(0 0, 100% 0, 100% 78%, 0 100%); } .mitad.b { bottom: 0; top: auto; clip-path: polygon(0 22%, 100% 0, 100% 100%, 0 100%); }
+    .mitad svg { height: 100%; }
+    .lugar { bottom: 3vh; }
+  }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="fondo" aria-hidden="true"></div><div class="velo" aria-hidden="true"></div><div class="rayas" aria-hidden="true"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <!-- silueta en guardia (100 × 160): la misma para todos, con proporciones distintas por luchador -->
+    <symbol id="luchador" viewBox="0 0 100 160"><g fill="currentColor">
+      <circle cx="52" cy="19" r="11"/>
+      <path d="M38 33 Q52 28 66 33 L70 60 Q66 76 60 82 L44 82 Q37 74 36 60 Z"/>
+      <path d="M41 38 L25 55 L32 62 L47 47 Z"/><path d="M25 55 L29 37 L37 39 L33 61 Z"/><circle cx="31" cy="34" r="6.5"/>
+      <path d="M63 38 L78 53 L72 60 L57 47 Z"/><path d="M78 53 L71 34 L63 36 L70 58 Z"/><circle cx="67" cy="31" r="6.5"/>
+      <path d="M42 78 L30 116 L22 153 L33 155 L42 119 L53 86 Z"/><path d="M58 78 L70 113 L84 150 L94 146 L81 109 L67 82 Z"/>
+    </g></symbol>
+  </defs>
+</svg>
+
+<div class="app">
+  <header class="cab">
+    <div class="logo">REINO <span>CAÍDO</span></div>
+    <nav class="pasos" aria-label="Pasos">
+      <div class="paso activo" data-paso="modo"><b>1</b><span>Modo</span></div>
+      <div class="paso" data-paso="seleccion"><b>2</b><span>Luchadores</span></div>
+      <div class="paso" data-paso="vs"><b>3</b><span>Versus</span></div>
+    </nav>
+    <div class="monedas">CRÉDITOS <b>03</b></div>
+  </header>
+
+  <main>
+    <section class="escena activa" id="e-modo" aria-label="Modo de juego">
+      <div class="modos" id="modos"></div>
+    </section>
+
+    <section class="escena" id="e-seleccion" aria-label="Selección de luchadores">
+      <div class="ficha p1" id="f1"><div class="figura"><svg viewBox="0 0 100 160"><use href="#luchador"/></svg></div><div class="jug">JUGADOR 1</div><div class="nombre">—</div><div class="estilo">—</div><div class="barras"></div><div class="listo">¡LISTO!</div></div>
+      <div class="centro">
+        <div class="grilla" id="grilla" role="grid" aria-label="Luchadores"></div>
+        <div class="escenarios"><button id="esc-a" aria-label="Escenario anterior">‹</button><span>Escenario</span><b id="esc">Azotea Cyberpunk</b><button id="esc-b" aria-label="Escenario siguiente">›</button></div>
+        <button class="luchar" id="luchar">¡A pelear!</button>
+      </div>
+      <div class="ficha p2" id="f2"><div class="figura"><svg viewBox="0 0 100 160"><use href="#luchador"/></svg></div><div class="jug">JUGADOR 2</div><div class="nombre">—</div><div class="estilo">—</div><div class="barras"></div><div class="listo">¡LISTO!</div></div>
+      <div class="ayuda"><span><kbd>← →</kbd>Elegir</span><span><kbd>Enter</kbd>Confirmar</span><span><kbd>Esc</kbd>Deshacer</span><span><kbd>W S</kbd>Escenario</span></div>
+    </section>
+
+    <section class="escena" id="e-vs" aria-label="Versus">
+      <div class="mitad a"><svg viewBox="0 0 100 160"><use href="#luchador"/></svg><div class="quien" style="color:var(--p1)">JUGADOR 1</div><div class="nom" id="vs1">—</div></div>
+      <div class="mitad b"><svg viewBox="0 0 100 160"><use href="#luchador"/></svg><div class="quien" style="color:var(--p2)">JUGADOR 2</div><div class="nom" id="vs2">—</div></div>
+      <div class="vs">VS</div>
+      <div class="destello"></div>
+      <div class="lugar">Round 1<b id="vs-lugar">—</b></div>
+      <button class="otra" id="otra">Elegir de nuevo</button>
+    </section>
+  </main>
+</div>
+<a class="volver" href="./">← MENÚES</a>
+
+<script>
+  const $ = s => document.querySelector(s);
+  const escenas = { modo: $("#e-modo"), seleccion: $("#e-seleccion"), vs: $("#e-vs") };
+  const orden = ["modo", "seleccion", "vs"];
+  let escena = "modo";
+  function ir(nombre) {
+    escena = nombre; document.body.dataset.escena = nombre;
+    Object.entries(escenas).forEach(([k, el]) => el.classList.toggle("activa", k === nombre));
+    document.querySelectorAll(".paso").forEach(p => { const i = orden.indexOf(p.dataset.paso), j = orden.indexOf(nombre); p.classList.toggle("activo", i === j); p.classList.toggle("hecho", i < j); });
+  }
+
+  /* ---------------------------------------------------------------- 1 · modo */
+  const MODOS = [
+    { t: "Arcade", e: "Un jugador", d: "Ocho rivales y un jefe final. Sin continues.", arte: "radial-gradient(circle at 70% 20%, #ff3a4a55, transparent 60%)", n: "01" },
+    { t: "Versus", e: "Local · 2 jugadores", d: "Mismo teclado o dos mandos. Mejor de tres.", arte: "linear-gradient(120deg, #2fa8ff44, transparent 50%, #ff3a4a44)", n: "02" },
+    { t: "Torneo", e: "Online", d: "Salas con amigos: el que gana sigue en pie.", arte: "radial-gradient(circle at 30% 30%, #ffd25a44, transparent 60%)", n: "03" }
+  ];
+  let modoSel = 1;
+  const fig = cl => `<svg class="${cl}" viewBox="0 0 100 160"><use href="#luchador"/></svg>`;
+  const trofeo = `<svg class="oro" viewBox="0 0 100 120" style="height:74%"><g fill="currentColor"><path d="M26 8h48v26c0 18-10 30-24 32C36 64 26 52 26 34Z"/><path d="M26 14H12v10c0 12 8 20 18 22l-2-8c-6-2-10-7-10-14v-4h8Zm48 0h14v10c0 12-8 20-18 22l2-8c6-2 10-7 10-14v-4h-8Z"/><rect x="44" y="64" width="12" height="20"/><path d="M30 84h40l6 14H24Z"/><rect x="20" y="98" width="60" height="10"/></g></svg>`;
+  const ARTE = [fig("sombra") + fig("p2") + fig("sombra"), fig("p1") + fig("p2"), fig("sombra") + trofeo + fig("sombra")];
+  $("#modos").innerHTML = MODOS.map((m, i) => `<button class="modo" data-i="${i}" style="--arte:${m.arte}"><span class="arte" aria-hidden="true">${ARTE[i]}</span><span class="deco">${m.n}</span><span class="etq">${m.e}</span><h2>${m.t}</h2><p>${m.d}</p></button>`).join("");
+  const botonesModo = [...document.querySelectorAll(".modo")];
+  const elegirModo = i => { modoSel = (i + MODOS.length) % MODOS.length; botonesModo.forEach((b, k) => b.classList.toggle("sel", k === modoSel)); };
+  botonesModo.forEach((b, i) => { b.addEventListener("mouseenter", () => elegirModo(i)); b.addEventListener("click", () => { elegirModo(i); ir("seleccion"); }); });
+  elegirModo(1);
+
+  /* ---------------------------------------------------------------- 2 · luchadores */
+  const L = [
+    { n: "KAIRO", e: "Boxeo callejero", c1: "#10213a", c2: "#2fa8ff", s: [70, 85, 60], sx: 1, sy: 1 },
+    { n: "VEXA", e: "Capoeira", c1: "#2a0f33", c2: "#c05bff", s: [55, 95, 80], sx: .92, sy: 1.02 },
+    { n: "TORK", e: "Lucha libre", c1: "#331a0a", c2: "#ff8f3f", s: [95, 45, 55], sx: 1.14, sy: .98 },
+    { n: "SHEN", e: "Kung fu", c1: "#0c2a22", c2: "#46c2b0", s: [60, 80, 95], sx: .96, sy: 1 },
+    { n: "NOVA", e: "Kickboxing", c1: "#3a0d24", c2: "#ff5fa8", s: [75, 75, 70], sx: .94, sy: 1.03 },
+    { n: "GRIM", e: "Sin estilo", c1: "#1a1a1a", c2: "#9be35a", s: [85, 60, 50], sx: 1.08, sy: 1.04 },
+    { n: "ORO", e: "Karate", c1: "#332a08", c2: "#ffd25a", s: [65, 70, 90], sx: 1, sy: 1 },
+    { n: "RAYA", e: "Muay thai", c1: "#0a1f33", c2: "#7dd3ff", s: [80, 72, 66], sx: .98, sy: 1.01 },
+    { n: "DAX", e: "Mixto · jefe", c1: "#1f0a0a", c2: "#ff3a4a", s: [99, 88, 92], sx: 1.1, sy: 1.06 }
+  ];
+  const ESC = ["Azotea Cyberpunk", "Calle Apocalíptica", "Mazmorra Medieval", "Templo del Ocaso", "Forja del Volcán"];
+  let escSel = 0;
+  const silueta = f => `<svg viewBox="0 0 100 160" style="transform:translateX(-50%) scale(${f.sx},${f.sy})"><use href="#luchador"/></svg>`;
+  $("#grilla").innerHTML = L.map((f, i) => `<button class="celda" role="gridcell" data-i="${i}" style="--c1:${f.c1};--c2:${f.c2}">${silueta(f)}<span class="marca m1">1P</span><span class="marca m2">2P</span><span class="n">${f.n}</span></button>`).join("")
+    + `<button class="celda azar" role="gridcell" data-i="azar" aria-label="Aleatorio"><b>?</b><span class="marca m1">1P</span><span class="marca m2">2P</span></button>`;
+  const celdas = [...document.querySelectorAll(".celda")];
+  const cur = [0, 4], ok = [false, false];
+  let turno = 0;
+
+  function pintarFicha(q) {
+    const el = q ? $("#f2") : $("#f1"), i = cur[q], f = i === L.length ? null : L[i];
+    el.classList.toggle("confirmado", ok[q]);
+    el.style.setProperty("--brillo", f ? f.c2 : "#ffd25a");
+    el.querySelector(".figura svg").style.color = f ? f.c2 : "#ffd25a";
+    el.querySelector(".nombre").textContent = f ? f.n : "¿?";
+    el.querySelector(".estilo").textContent = f ? f.e : "Aleatorio";
+    el.querySelector(".barras").innerHTML = ["Poder", "Velocidad", "Técnica"].map((n, k) => `<div class="barra"><span>${n}</span><i><b style="width:${f ? f.s[k] : 50}%"></b></i></div>`).join("");
+  }
+  function pintar() {
+    celdas.forEach((c, i) => { c.classList.toggle("en1", cur[0] === i); c.classList.toggle("en2", cur[1] === i); });
+    pintarFicha(0); pintarFicha(1);
+    $("#esc").textContent = ESC[escSel];
+    $("#luchar").classList.toggle("ok", ok[0] && ok[1]);
+  }
+  function mover(d) { if (ok[turno]) return; cur[turno] = (cur[turno] + d + celdas.length) % celdas.length; pintar(); }
+  function confirmar() {
+    if (ok[0] && ok[1]) return pelear();
+    ok[turno] = true;
+    if (cur[turno] === L.length) cur[turno] = Math.floor(Math.random() * L.length);    // aleatorio: se resuelve al confirmar
+    if (turno === 0) turno = 1;
+    pintar();
+  }
+  function deshacer() { if (ok[1]) { ok[1] = false; turno = 1; } else if (ok[0]) { ok[0] = false; turno = 0; } else ir("modo"); pintar(); }
+  celdas.forEach((c, i) => {
+    c.addEventListener("mouseenter", () => { if (!ok[turno]) { cur[turno] = i; pintar(); } });
+    c.addEventListener("click", () => { if (!ok[turno]) { cur[turno] = i; confirmar(); } });
+  });
+  $("#esc-a").addEventListener("click", () => { escSel = (escSel + ESC.length - 1) % ESC.length; pintar(); });
+  $("#esc-b").addEventListener("click", () => { escSel = (escSel + 1) % ESC.length; pintar(); });
+  $("#luchar").addEventListener("click", pelear);
+  pintar();
+
+  /* ---------------------------------------------------------------- 3 · versus */
+  function pelear() {
+    if (!(ok[0] && ok[1])) return;
+    const a = L[cur[0]], b = L[cur[1]];
+    $("#vs1").textContent = a.n; $("#vs2").textContent = b.n; $("#vs-lugar").textContent = ESC[escSel];
+    ir("vs");
+    const vs = $("#e-vs"); vs.classList.remove("corre"); void vs.offsetWidth; vs.classList.add("corre");
+  }
+  $("#otra").addEventListener("click", () => { ok[0] = ok[1] = false; turno = 0; pintar(); ir("seleccion"); });
+
+  /* ---------------------------------------------------------------- teclado */
+  addEventListener("keydown", e => {
+    if (escena === "modo") {
+      if (e.key === "ArrowRight" || e.key === "ArrowDown") elegirModo(modoSel + 1);
+      else if (e.key === "ArrowLeft" || e.key === "ArrowUp") elegirModo(modoSel - 1);
+      else if (e.key === "Enter") ir("seleccion");
+    } else if (escena === "seleccion") {
+      if (e.key === "ArrowRight") mover(1); else if (e.key === "ArrowLeft") mover(-1);
+      else if (e.key === "ArrowDown") mover(5); else if (e.key === "ArrowUp") mover(-5);
+      else if (e.key.toLowerCase() === "w") { escSel = (escSel + ESC.length - 1) % ESC.length; pintar(); }
+      else if (e.key.toLowerCase() === "s") { escSel = (escSel + 1) % ESC.length; pintar(); }
+      else if (e.key === "Enter") confirmar(); else if (e.key === "Escape" || e.key === "Backspace") deshacer();
+    } else if (escena === "vs" && (e.key === "Escape" || e.key === "Enter")) $("#otra").click();
+  });
+</script>
+</body>
+</html>

@@ -24,7 +24,7 @@ let dbLista = false, dbError = "";
 const MIME = {
   ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".mjs": "text/javascript; charset=utf-8",
   ".css": "text/css; charset=utf-8", ".json": "application/json; charset=utf-8", ".wasm": "application/wasm",
-  ".glb": "model/gltf-binary", ".fbx": "application/octet-stream", ".png": "image/png", ".jpg": "image/jpeg",
+  ".glb": "model/gltf-binary", ".fbx": "application/octet-stream", ".png": "image/png", ".jpg": "image/jpeg", ".webp": "image/webp",
   ".svg": "image/svg+xml", ".ico": "image/x-icon"
 };
 const json = (res, code, obj) => { res.writeHead(code, { "Content-Type": MIME[".json"], "Cache-Control": "no-store" }); res.end(JSON.stringify(obj)); };
@@ -38,7 +38,12 @@ function estatico(req, res, url) {
   const esJuegos = ruta === "/juegos" || ruta.startsWith("/juegos/");
   const enSitio = ruta === "/" || (!esJuegos && !ruta.startsWith("/src/") && !ruta.startsWith("/node_modules/"));
   let abs;
-  if (enSitio) { abs = path.normalize(path.join(DIR_SITIO, ruta === "/" ? "/index.html" : ruta)); if (!abs.startsWith(DIR_SITIO + path.sep) && abs !== DIR_SITIO) { res.writeHead(403); return res.end("Prohibido"); } }
+  if (enSitio) {
+    // secciones del sitio como carpetas (/menues): sin barra final se redirige, así los links relativos de adentro resuelven bien
+    if (ruta !== "/" && !path.extname(ruta) && !ruta.endsWith("/")) { res.writeHead(301, { Location: ruta + "/" + url.search }); return res.end(); }
+    abs = path.normalize(path.join(DIR_SITIO, ruta.endsWith("/") ? ruta + "index.html" : ruta));
+    if (!abs.startsWith(DIR_SITIO + path.sep) && abs !== DIR_SITIO) { res.writeHead(403); return res.end("Prohibido"); }
+  }
   else {
     if (ruta === "/juegos" || ruta === "/juegos/") ruta = "/juegos/index.html";                               // portada del catálogo
     else if (ruta.startsWith("/juegos/") && ruta.split("/").filter(Boolean).length === 2) ruta += "/index.html";   // /juegos/reino-caido → su index.html
@@ -50,7 +55,7 @@ function estatico(req, res, url) {
     const ext = path.extname(abs).toLowerCase();
     const cab = { "Content-Type": MIME[ext] || "application/octet-stream", "Accept-Ranges": "bytes",
       // los modelos no cambian: caché larga; el código y el HTML se revalidan
-      "Cache-Control": [".glb", ".fbx", ".wasm"].includes(ext) ? "public, max-age=86400" : "no-cache", "Last-Modified": st.mtime.toUTCString() };
+      "Cache-Control": [".glb", ".fbx", ".wasm", ".webp"].includes(ext) ? "public, max-age=86400" : "no-cache", "Last-Modified": st.mtime.toUTCString() };
     if (req.headers["if-modified-since"] && new Date(req.headers["if-modified-since"]) >= new Date(Math.floor(st.mtimeMs / 1000) * 1000)) { res.writeHead(304, cab); return res.end(); }
     res.writeHead(200, { ...cab, "Content-Length": st.size });
     if (req.method === "HEAD") return res.end();
