@@ -43,6 +43,8 @@
   .jugar:hover { filter: brightness(1.1); }
   .carta.pronto { opacity: .55; border-style: dashed; }
   .carta.pronto .escena { filter: grayscale(1); }
+  .escena.foto { padding: 0; } .escena.foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .pronto-tag.nuevo { z-index: 1; color: #f2dca0; border-color: rgba(216, 184, 102, .5); background: rgba(10, 8, 4, .7); }
   .pronto-tag { position: absolute; top: 12px; right: 12px; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: #8b95a8; border: 1px solid var(--linea); padding: 4px 10px; background: rgba(0,0,0,.5); }
 </style>
 </head>
@@ -65,12 +67,14 @@
           <a class="jugar" href="/juegos/reino-caido">Jugar</a>
         </div>
       </article>
-      <article class="carta pronto" aria-label="Próximo juego, todavía sin anunciar">
-        <span class="pronto-tag">Próximamente</span>
-        <div class="escena cyber">✦</div>
+      <article class="carta">
+        <span class="pronto-tag nuevo">Nuevo · en desarrollo</span>
+        <div class="escena foto"><img src="/juegos/coronas/img/portada.webp" alt="Castillo azul con su cuartel, granja, torre y peones trabajando"></div>
         <div class="cuerpo">
-          <h2>Por anunciar</h2>
-          <p>Acá va a aparecer el próximo juego del catálogo.</p>
+          <h2>Coronas de Hierro</h2>
+          <p>Estrategia en tiempo real. Levantá tu reino, juntá oro y madera, entrená soldados, arqueras y caballeros, y derrotá al reino rival antes de que él te derrote a vos.</p>
+          <div class="tags"><span class="tag">Estrategia</span><span class="tag">3D</span><span class="tag">Contra la máquina</span></div>
+          <a class="jugar" href="/juegos/coronas">Jugar</a>
         </div>
       </article>
     </div>

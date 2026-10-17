@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Coronas de Hierro · Daxenworld</title>
+<meta name="description" content="Estrategia en tiempo real en el navegador: levantá tu reino, juntá recursos y derrotá al reino rival.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23101318'/%3E%3Cpath d='M6 23 L8 10 L13 16 L16 8 L19 16 L24 10 L26 23 Z' fill='%23e3b85a'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/juegos/coronas/css/juego.css">
+<script type="importmap">
+{ "imports": { "three": "/node_modules/three/build/three.module.js", "three/addons/": "/node_modules/three/examples/jsm/" } }
+</script>
+</head>
+<body>
+<canvas id="lienzo"></canvas>
+<div id="hud"></div>
+<div id="cuadro" hidden></div>
+<div id="menu" class="capa" hidden></div>
+<div id="pausa" class="capa" hidden></div>
+<div id="fin" class="capa" hidden></div>
+<div id="carga">
+  <div class="c-titulo"><span>Coronas</span><small>de Hierro</small></div>
+  <div class="barra"><i></i></div>
+  <div class="paso">Iniciando…</div>
+</div>
+<script type="module" src="/juegos/coronas/src/main.js"></script>
+</body>
+</html>

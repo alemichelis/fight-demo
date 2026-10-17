@@ -164,7 +164,12 @@ dxDiccionario({
     "Juego de pelea 3D. Creá tu avatar con una selfie (Avaturn), armá un torneo y desafiá a tus amigos: el que gana sigue en pie hasta que alguien lo destrone.":
       "A 3D fighting game. Create your avatar from a selfie (Avaturn), set up a tournament and challenge your friends: the winner stays on until someone dethrones them.",
     "Torneos": "Tournaments", "Jugar": "Play", "Próximo juego, todavía sin anunciar": "Next game, not announced yet", "Próximamente": "Coming soon",
-    "Por anunciar": "To be announced", "Acá va a aparecer el próximo juego del catálogo.": "The next game in the catalog will show up here."
+    "Por anunciar": "To be announced", "Acá va a aparecer el próximo juego del catálogo.": "The next game in the catalog will show up here.",
+    "Nuevo · en desarrollo": "New · in development",
+    "Castillo azul con su cuartel, granja, torre y peones trabajando": "Blue castle with its barracks, farm, tower and peasants at work",
+    "Estrategia en tiempo real. Levantá tu reino, juntá oro y madera, entrená soldados, arqueras y caballeros, y derrotá al reino rival antes de que él te derrote a vos.":
+      "Real-time strategy. Build up your kingdom, gather gold and wood, train soldiers, archers and knights, and defeat the rival kingdom before it defeats you.",
+    "Estrategia": "Strategy", "Contra la máquina": "Versus the AI"
   },
 
   /* ------------------------------------------------------------ vitrina de menúes (/menues) */
