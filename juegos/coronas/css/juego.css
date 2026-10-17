@@ -28,17 +28,21 @@ body[data-puntero="recurso"] #lienzo { cursor: pointer; }
 #carga.error .paso { color: var(--rojo); letter-spacing: .05em; text-transform: none; font-size: 15px; }
 
 /* ---------------------------------------------------------------- capas de menú */
-.capa { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; padding: 24px;
+.capa { position: fixed; inset: 0; z-index: 30; display: flex; padding: 24px; overflow-y: auto;
   background: radial-gradient(ellipse at 50% 45%, rgba(8, 10, 14, .35) 0%, rgba(8, 10, 14, .82) 75%); }
 .capa[hidden] { display: none; }
 #pausa, #fin { background: rgba(8, 10, 14, .72); backdrop-filter: blur(4px); }
-.menu-caja { width: min(520px, 100%); display: grid; gap: 16px; justify-items: stretch; text-align: center; padding: 34px 34px 28px;
+.menu-caja { margin: auto; width: min(520px, 100%); display: grid; gap: 16px; justify-items: stretch; text-align: center; padding: 34px 34px 28px;
   background: linear-gradient(180deg, rgba(20, 23, 29, .9), rgba(12, 14, 18, .94)); border: 1px solid var(--linea); border-radius: 6px;
   box-shadow: 0 30px 80px rgba(0, 0, 0, .6), inset 0 1px 0 rgba(255, 255, 255, .05); position: relative; }
 .menu-caja::before, .menu-caja::after { content: ""; position: absolute; width: 22px; height: 22px; border: 2px solid var(--oro); }
 .menu-caja::before { top: -1px; left: -1px; border-right: 0; border-bottom: 0; }
 .menu-caja::after { bottom: -1px; right: -1px; border-left: 0; border-top: 0; }
 .menu-caja.chica { width: min(360px, 100%); }
+.menu-caja .titulo { font-size: clamp(38px, 11vw, 70px); letter-spacing: .04em; margin-right: -.04em; }
+.menu-caja.chica .titulo { font-size: clamp(34px, 9vw, 48px); }
+.menu-caja .titulo small { font-size: clamp(13px, 2.6vw, 18px); letter-spacing: .42em; margin-right: -.42em; }
+.sub-fin { margin: -6px 0 4px; font: 600 12px/1.4 var(--f-ui); letter-spacing: .22em; text-transform: uppercase; color: var(--apagado); }
 .titulo.gano span { background: linear-gradient(180deg, #fff6d6, var(--oro)); -webkit-background-clip: text; background-clip: text; }
 .titulo.perdio { background: linear-gradient(180deg, #ffd0c8 0%, #c2423b 60%, #6a1d1a 100%); -webkit-background-clip: text; background-clip: text; }
 .lema { margin: 0 auto 4px; color: #cfc6b6; max-width: 40ch; font-size: 15px; }
@@ -50,10 +54,11 @@ body[data-puntero="recurso"] #lienzo { cursor: pointer; }
 .jugar { margin-top: 6px; padding: 15px 20px; border: 1px solid #c99b45; border-radius: 4px; font: 700 16px/1 var(--f-tit); letter-spacing: .14em; text-transform: uppercase; color: #1d1405;
   background: linear-gradient(180deg, #f6dc98 0%, #d7a84e 55%, #a77a2e 100%); box-shadow: 0 8px 26px rgba(227, 184, 90, .25), inset 0 1px 0 rgba(255, 255, 255, .5); transition: filter .2s, transform .2s; }
 .jugar:hover { filter: brightness(1.08); transform: translateY(-1px); }
-.sec { display: block; padding: 12px; border: 1px solid rgba(255, 255, 255, .12); border-radius: 4px; background: rgba(255, 255, 255, .03); text-decoration: none; font-weight: 600; letter-spacing: .04em; }
+.sec { display: block; padding: 12px; color: var(--tinta); border: 1px solid rgba(255, 255, 255, .12); border-radius: 4px; background: rgba(255, 255, 255, .03); text-decoration: none; font-weight: 600; letter-spacing: .04em; }
 .sec:hover { border-color: var(--linea); color: var(--oro-claro); }
 .ayuda { text-align: left; color: #cfc6b6; font-size: 13.5px; }
-.ayuda summary { cursor: pointer; font: 700 11px/1 var(--f-ui); letter-spacing: .22em; text-transform: uppercase; color: var(--apagado); text-align: center; padding: 6px; }
+.ayuda summary { cursor: pointer; border-radius: 3px; list-style-position: inside; font: 700 11px/1 var(--f-ui); letter-spacing: .22em; text-transform: uppercase; color: var(--apagado); text-align: center; padding: 6px; }
+.ayuda summary:focus { outline: none; } .ayuda summary:focus-visible { outline: 1px solid var(--linea); outline-offset: 2px; }
 .ayuda ul { margin: 10px 0 0; padding-left: 18px; display: grid; gap: 6px; }
 kbd { display: inline-block; min-width: 18px; padding: 1px 5px; border: 1px solid rgba(255, 255, 255, .25); border-bottom-width: 2px; border-radius: 3px; font: 700 11px/1.4 var(--f-ui); text-align: center; color: var(--tinta); background: rgba(0, 0, 0, .3); }
 .salir { position: fixed; left: 18px; bottom: 16px; color: var(--apagado); text-decoration: none; font-weight: 600; letter-spacing: .06em; }

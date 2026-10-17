@@ -423,7 +423,8 @@ class Juego {
     const s = this.mundo.jugadores.map(J => J.stats), t = Math.floor(this.mundo.tiempo);
     const fila = (n, k) => `<tr><td>${n}</td><td>${s[0][k]}</td><td>${s[1][k]}</td></tr>`;
     const f = $("#fin"); f.hidden = false;
-    f.innerHTML = `<div class="menu-caja"><div class="titulo ${gane ? "gano" : "perdio"}"><span>${gane ? "Victoria" : "Derrota"}</span><small>${gane ? "El reino rival cayó" : "Tu reino cayó"} · ${Math.floor(t / 60)} min ${t % 60} s</small></div>
+    f.innerHTML = `<div class="menu-caja"><div class="titulo ${gane ? "gano" : "perdio"}"><span>${gane ? "Victoria" : "Derrota"}</span></div>
+      <p class="sub-fin">${gane ? "El reino rival cayó" : "Tu reino cayó"} · ${Math.floor(t / 60)} min ${String(t % 60).padStart(2, "0")} s</p>
       <table class="tabla-fin"><thead><tr><th></th><th>Vos</th><th>Rival</th></tr></thead><tbody>
         ${fila("Unidades entrenadas", "entrenadas")}${fila("Enemigos abatidos", "bajas")}${fila("Unidades perdidas", "perdidas")}${fila("Edificios levantados", "edificios")}${fila("Oro juntado", "oro")}${fila("Madera juntada", "madera")}
       </tbody></table>
