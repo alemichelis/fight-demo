@@ -1,7 +1,10 @@
 // Interfaz en pantalla: recursos, minimapa, panel de selección y grilla de comandos.
 // La grilla se arma según lo seleccionado; cada botón tiene tecla fija por posición (Q W E R / A S D F / Z X C V).
 
-import { UNIDADES, EDIFICIOS, MINA, TECLAS_GRILLA, POB_MAX } from "../datos.js";
+import { UNIDADES, EDIFICIOS, MINA, POB_MAX, NIVELES, INVESTIGACIONES } from "../datos.js";
+import { config, nombreTecla } from "../config.js";
+// la tecla de cada posición de la grilla sale de la configuración (se puede reasignar)
+const teclaGrilla = i => config.valor.teclas.grilla[i];
 import { ARBOL, ROCA, AGUA } from "../sim/mapa.js";
 
 const JUGADOR = 0;
@@ -13,8 +16,29 @@ const ICONOS = {
   construir: '<svg viewBox="0 0 24 24"><path d="M14 6l4 4M3 21l9-9M12.5 4.5l7 7-2.5 2.5-7-7z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   volver: '<svg viewBox="0 0 24 24"><path d="M10 6l-6 6 6 6M4 12h16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   cancelar: '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg>',
-  reunion: '<svg viewBox="0 0 24 24"><path d="M6 21V4M6 4h11l-2.5 4L17 12H6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/></svg>'
+  reunion: '<svg viewBox="0 0 24 24"><path d="M6 21V4M6 4h11l-2.5 4L17 12H6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/></svg>',
+  girar: '<svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.6-5.9M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>'
 };
+const DIBUJO = {
+  espada: '<path d="M44 12l8 0 0 8-24 24-8-8z M18 34l12 12-4 4-5-2-8 8-4-4 8-8-2-5z" fill="#e8e2d4"/>',
+  flecha: '<path d="M12 52L46 18M40 14h10v10M16 44l-6 2 2-6M20 50l-6 2 2-6" stroke="#e8e2d4" stroke-width="4.5" fill="none" stroke-linecap="round"/>',
+  escudo: '<path d="M32 10l18 6v14c0 12-8 20-18 24-10-4-18-12-18-24V16z" fill="#e8e2d4"/><path d="M32 16v32c-7-3-12-9-12-18V20z" fill="#9aa3ad"/>',
+  corona: '<path d="M12 44l4-24 10 12 6-16 6 16 10-12 4 24z" fill="#f2c14e"/><rect x="12" y="44" width="40" height="6" fill="#f2c14e"/>'
+};
+// ícono cuadrado con fondo de pergamino oscuro y un grado (I, II, 2, 3) en la esquina
+function iconoSVG(dibujo, grado) {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><defs><radialGradient id="f" cx="50%" cy="35%" r="75%"><stop offset="0" stop-color="#3b3326"/><stop offset="1" stop-color="#14110c"/></radialGradient></defs><rect width="64" height="64" fill="url(#f)"/>${DIBUJO[dibujo]}${grado ? `<text x="58" y="58" text-anchor="end" font-family="Georgia,serif" font-weight="700" font-size="17" fill="#f5d68f" stroke="#000" stroke-width="3" paint-order="stroke">${grado}</text>` : ""}</svg>`;
+  return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+}
+// qué destraba cada nivel (para el botón de mejora y el aviso)
+export function destrabesDe(nivel) {
+  const n = [];
+  for (const d of [...Object.values(EDIFICIOS), ...Object.values(UNIDADES)]) if (d.nivel === nivel) n.push(d.nombre);
+  const inv = Object.values(INVESTIGACIONES).filter(d => d.nivel === nivel).length;
+  if (inv) n.push(`${inv} investigaciones`);
+  return n;
+}
+
 const RECURSO_SVG = {
   oro: '<svg viewBox="0 0 24 24"><path d="M4 15l3-6h10l3 6-8 4z" fill="#f2c14e"/><path d="M7 9l5 3 5-3M12 12v7" fill="none" stroke="#9a6b12" stroke-width="1.2"/></svg>',
   madera: '<svg viewBox="0 0 24 24"><rect x="3" y="9" width="18" height="6" rx="3" fill="#a5713f"/><circle cx="20" cy="12" r="3" fill="#e2b77a"/><circle cx="20" cy="12" r="1.3" fill="#a5713f"/></svg>',
@@ -31,13 +55,15 @@ export class HUD {
           <div class="rec" id="r-oro" title="Oro">${RECURSO_SVG.oro}<b>0</b></div>
           <div class="rec" id="r-madera" title="Madera">${RECURSO_SVG.madera}<b>0</b></div>
           <div class="rec" id="r-pob" title="Población (comida)">${RECURSO_SVG.pob}<b>0/0</b></div>
+          <div class="nivel-reino" id="r-nivel" title="Nivel del reino: se sube desde el castillo">Aldea</div>
         </div>
         <div class="reloj" id="reloj">00:00</div>
         <button class="btn-menu" id="btn-menu" title="Menú (F10)">Menú</button>
       </div>
       <div class="avisos" id="avisos" aria-live="polite"></div>
       <div class="inf">
-        <div class="minimapa marco"><canvas id="minimapa"></canvas></div>
+        <div class="minimapa marco"><canvas id="minimapa"></canvas>
+          <div class="giro"><button data-giro="1" title="Girar a la izquierda (Ctrl+←)">⟲</button><button data-giro="0" title="Volver al norte (N)" id="brujula">N</button><button data-giro="-1" title="Girar a la derecha (Ctrl+→)">⟳</button></div></div>
         <div class="info marco" id="info"></div>
         <div class="comandos marco" id="comandos"></div>
       </div>
@@ -46,6 +72,7 @@ export class HUD {
     this.tip = this.$("#tip");
     this.mini = new Minimapa(this.$("#minimapa"), mundo, acciones);
     this.$("#btn-menu").addEventListener("click", () => acciones.menu());
+    this.$(".giro").addEventListener("click", e => { const b = e.target.closest("[data-giro]"); if (b) acciones.rotar(+b.dataset.giro); });
     this.$("#comandos").addEventListener("click", e => { const b = e.target.closest("button[data-i]"); if (b && !b.disabled) this.ejecutar(+b.dataset.i); });
     this.$("#comandos").addEventListener("pointerover", e => { const b = e.target.closest("button[data-i]"); if (b) this.mostrarTip(b); });
     this.$("#comandos").addEventListener("pointerleave", () => this.tip.hidden = true);
@@ -63,11 +90,14 @@ export class HUD {
     this.$("#r-oro b").textContent = Math.floor(J.oro);
     this.$("#r-madera b").textContent = Math.floor(J.madera);
     const pob = this.$("#r-pob b"); pob.textContent = `${J.pob}/${J.pobMax}`;
+    const nv = this.m.nivelDe(JUGADOR); this.$("#r-nivel").textContent = `${NIVELES[nv].nombre} · ${nv}`;
     pob.classList.toggle("lleno", J.pob >= J.pobMax);
     const t = Math.floor(this.m.tiempo); this.$("#reloj").textContent = `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`;
     this.pintarInfo(seleccion);
     this.pintarComandos(seleccion);
     this.mini.dibujar();
+    // la «N» de la brújula gira con la cámara: siempre apunta al norte del mapa
+    this.$("#brujula").style.transform = `rotate(${this.acc.ctx.cam.giro}rad)`;
   }
 
   aviso(texto, tipo = "") {
@@ -83,7 +113,7 @@ export class HUD {
     const info = this.$("#info");
     const ents = sel.map(id => this.m.ents.get(id)).filter(Boolean);
     // sólo se reconstruye si cambió la composición; los números se actualizan in situ
-    const firma = ents.map(e => e.id + (e.completo === false ? "o" : "") + (e.cola ? e.cola.join() : "")).join(",");
+    const firma = ents.map(e => e.id + (e.completo === false ? "o" : "") + (e.cola ? e.cola.join() : "") + (e.nivel || "")).join(",");
     if (firma !== this.firmaInfo) {
       this.firmaInfo = firma;
       if (!ents.length) info.innerHTML = `<div class="vacio">Seleccioná unidades o edificios.<br><small>Clic izquierdo para elegir, clic derecho para dar órdenes.</small></div>`;
@@ -96,11 +126,23 @@ export class HUD {
       const b = info.querySelector(".vida i"); if (b) { b.style.width = f * 100 + "%"; b.className = f > 0.5 ? "" : f > 0.25 ? "medio" : "bajo"; }
       const tv = info.querySelector(".vida-n"); if (tv) tv.textContent = e.clase === "mina" ? `${Math.floor(e.oro)} de oro` : `${Math.ceil(Math.max(0, e.vida))} / ${e.vidaMax}`;
       const pr = info.querySelector(".prog i");
-      if (pr) pr.style.width = (e.completo === false ? e.progreso : e.cola?.length ? e.colaT / UNIDADES[e.cola[0]].tiempo : 0) * 100 + "%";
+      if (pr) pr.style.width = (e.completo === false ? e.progreso : e.cola?.length ? e.colaT / this.m.itemCola(e, e.cola[0]).tiempo : 0) * 100 + "%";
       const est = info.querySelector(".estado"); if (est) est.textContent = this.estado(e);
     } else {
       info.querySelectorAll(".mini-ret").forEach(b => { const e = this.m.ents.get(+b.dataset.sel); if (e) b.querySelector("b").style.width = Math.max(0, e.vida / e.vidaMax) * 100 + "%"; });
     }
+  }
+
+  // nombre e imagen de lo que hay en una cola (tropa, investigación o mejora de nivel)
+  textoCola(e, item) {
+    if (item === "nivel") return `Mejorando a ${NIVELES[e.nivel + 1].nombre}`;
+    if (item.startsWith("inv:")) return `Investigando: ${INVESTIGACIONES[item.slice(4)].nombre}`;
+    return `Entrenando: ${UNIDADES[item].nombre}`;
+  }
+  imagen(e, item) {
+    if (item === "nivel") return iconoSVG("corona", String(e.nivel + 1));
+    if (item.startsWith("inv:")) { const d = INVESTIGACIONES[item.slice(4)]; return iconoSVG(d.icono, d.grado); }
+    return this.retratos[item];
   }
 
   nombre(e) { return e.clase === "mina" ? MINA.nombre : (UNIDADES[e.tipo] || EDIFICIOS[e.tipo]).nombre; }
@@ -108,7 +150,7 @@ export class HUD {
   estado(e) {
     if (e.clase === "mina") return "Recurso neutral";
     if (e.dueño !== JUGADOR) return e.dueño >= 0 ? this.m.jugadores[e.dueño].nombre : "";
-    if (e.clase === "edificio") return !e.completo ? `En obra · ${Math.floor(e.progreso * 100)}%` : e.cola.length ? `Entrenando: ${UNIDADES[e.cola[0]].nombre}` : "Listo";
+    if (e.clase === "edificio") return !e.completo ? (this.m.constructores(e.id) ? `En obra · ${Math.floor(e.progreso * 100)}%` : `Obra parada · ${Math.floor(e.progreso * 100)}% — mandá un peón con clic derecho`) : e.cola.length ? this.textoCola(e, e.cola[0]) : "Listo";
     const o = e.orden;
     if (e.oculto) return "Adentro de la mina";
     if (!o) return "Esperando órdenes";
@@ -122,8 +164,9 @@ export class HUD {
     if (atk) st.push(["Daño", atk.danio], ["Alcance", atk.rango < 1 ? "Cuerpo a cuerpo" : atk.rango]);
     if (d.armadura != null) st.push(["Armadura", d.armadura]);
     if (d.velocidad) st.push(["Velocidad", d.velocidad]);
-    if (d.pobDa && e.completo) st.push(["Comida", "+" + d.pobDa]);
-    const cola = e.clase === "edificio" && e.dueño === JUGADOR && e.cola.length ? `<div class="cola">${e.cola.map((t, i) => `<button data-cola="${i}" data-ed="${e.id}" title="Cancelar ${UNIDADES[t].nombre}"><img src="${this.retratos[t]}" alt="">${i === 0 ? '<span class="prog"><i></i></span>' : ""}</button>`).join("")}</div>` : "";
+    if (d.pobDa && e.completo) st.push(["Comida", "+" + (d.pobDa + (e.nivel > 1 ? NIVELES[e.nivel].pobExtra : 0))]);
+    if (e.tipo === "castillo") st.unshift(["Nivel", NIVELES[e.nivel].nombre]);
+    const cola = e.clase === "edificio" && e.dueño === JUGADOR && e.cola.length ? `<div class="cola">${e.cola.map((t, i) => `<button data-cola="${i}" data-ed="${e.id}" title="Cancelar: ${this.textoCola(e, t)}"><img src="${this.imagen(e, t)}" alt="">${i === 0 ? '<span class="prog"><i></i></span>' : ""}</button>`).join("")}</div>` : "";
     return `<div class="una">
       <img class="retrato" src="${this.retratos[e.tipo]}" alt="">
       <div class="datos">
@@ -148,9 +191,9 @@ export class HUD {
     if (unidades.length) {
       const peones = unidades.filter(u => UNIDADES[u.tipo].construye);
       if (this.menu === "construir" && peones.length) {
-        ["granja", "cuartel", "herreria", "torre", "castillo"].forEach((t, i) => {
+        ["granja", "cuartel", "herreria", "torre", "barricada", "muralla", "castillo"].forEach((t, i) => {
           const d = EDIFICIOS[t];
-          g[i] = { tipo: "construir", edificio: t, img: this.retratos[t], titulo: d.nombre, costo: d.costo, desc: d.desc };
+          g[i] = { tipo: "construir", edificio: t, img: this.retratos[t], titulo: d.nombre, costo: d.costo, desc: d.desc, requisito: this.m.bloqueo(JUGADOR, d) };
         });
         g[11] = { tipo: "volver", svg: ICONOS.volver, titulo: "Volver" };
         return g;
@@ -165,13 +208,34 @@ export class HUD {
     const tipo = ents[0].tipo;
     if (ents.every(e => e.clase === "edificio" && e.tipo === tipo)) {
       const e = ents[0], d = EDIFICIOS[tipo];
+      g[10] = { tipo: "girar", svg: ICONOS.girar, titulo: "Girar 90°", desc: `Cambia hacia dónde mira el edificio. También con ${nombreTecla(config.valor.teclas.girarEdificio)} o la rueda del mouse mientras lo ubicás.` };
       if (!e.completo) { g[11] = { tipo: "cancelar", svg: ICONOS.cancelar, titulo: "Cancelar obra", desc: "Devuelve el 75 % de lo invertido." }; return g; }
       (d.entrena || []).forEach((t, i) => {
-        const u = UNIDADES[t], falta = u.requiere && !this.m.edificiosDe(JUGADOR).some(b => b.tipo === u.requiere && b.completo);
-        g[i] = { tipo: "entrenar", unidad: t, img: this.retratos[t], titulo: u.nombre, costo: u.costo, pob: u.pob, desc: u.desc, requisito: falta ? `Requiere ${EDIFICIOS[u.requiere].nombre}` : null };
+        const u = UNIDADES[t];
+        g[i] = { tipo: "entrenar", unidad: t, img: this.retratos[t], titulo: u.nombre, costo: u.costo, pob: u.pob, desc: u.desc, requisito: this.m.bloqueo(JUGADOR, u) };
       });
+      // castillo: subir el reino de nivel
+      if (d.mejora) {
+        const sig = NIVELES[e.nivel + 1];
+        if (sig) {
+          const falta = sig.requiere && !this.m.edificiosDe(JUGADOR).some(b => b.tipo === sig.requiere && b.completo);
+          g[4] = { tipo: "mejorar", img: iconoSVG("corona", String(e.nivel + 1)), titulo: `Mejorar a ${sig.nombre}`, costo: sig.costo,
+            desc: `Más vida y comida para el castillo. Destraba: ${destrabesDe(e.nivel + 1).join(", ")}.`,
+            requisito: e.cola.includes("nivel") ? "La mejora ya está en marcha." : falta ? `Requiere una ${EDIFICIOS[sig.requiere].nombre.toLowerCase()} terminada.` : null };
+        }
+      }
+      // herrería: investigaciones (I arriba, II abajo)
+      if (d.investiga) {
+        const J = this.m.jugadores[JUGADOR];
+        ["armas1", "flechas1", "armadura1", null, "armas2", "flechas2", "armadura2"].forEach((k, i) => {
+          if (!k) return;
+          const inv = INVESTIGACIONES[k];
+          const req = J.investigado.has(k) ? "Ya investigada." : J.enCurso.has(k) ? "En curso." : this.m.bloqueo(JUGADOR, inv);
+          g[i] = { tipo: "investigar", inv: k, img: iconoSVG(inv.icono, inv.grado), titulo: inv.nombre, costo: J.investigado.has(k) ? null : inv.costo, desc: inv.desc, requisito: req, hecha: J.investigado.has(k) };
+        });
+      }
       if (d.entrena) g[7] = { tipo: "reunion", svg: ICONOS.reunion, titulo: "Punto de reunión", desc: "Clic en el mapa: ahí van las unidades nuevas. Sobre una mina o un árbol, los peones se ponen a trabajar." };
-      if (e.cola.length) g[11] = { tipo: "cancelar", svg: ICONOS.cancelar, titulo: "Cancelar entrenamiento", desc: "Cancela el último de la cola y devuelve lo gastado." };
+      if (e.cola.length) g[11] = { tipo: "cancelar", svg: ICONOS.cancelar, titulo: "Cancelar el último de la cola", desc: "Devuelve lo gastado." };
     }
     return g;
   }
@@ -179,12 +243,12 @@ export class HUD {
   pintarComandos(sel) {
     const g = this.comandosPara(sel);
     const J = this.m.jugadores[JUGADOR];
-    const firma = g.map(c => c ? c.tipo + (c.edificio || c.unidad || "") + (c.requisito || "") : "_").join("|") + this.acc.modo();
+    const firma = g.map(c => c ? c.tipo + (c.edificio || c.unidad || c.inv || "") + (c.requisito || "") : "_").join("|") + this.acc.modo() + config.valor.teclas.grilla.join("");
     const cont = this.$("#comandos");
     if (firma !== this.firma) {
       this.firma = firma; this.botones = g;
       cont.innerHTML = g.map((c, i) => c
-        ? `<button data-i="${i}" class="${this.acc.modo() === c.tipo ? "activo" : ""}"><span class="ico">${c.img ? `<img src="${c.img}" alt="">` : c.svg}</span><kbd>${TECLAS_GRILLA[i].toUpperCase()}</kbd>${c.costo ? '<span class="falta"></span>' : ""}</button>`
+        ? `<button data-i="${i}" class="${this.acc.modo() === c.tipo ? "activo" : ""}"><span class="ico">${c.img ? `<img src="${c.img}" alt="">` : c.svg}</span><kbd>${nombreTecla(teclaGrilla(i))}</kbd>${c.costo ? '<span class="falta"></span>' : ""}</button>`
         : `<span class="vacia"></span>`).join("");
     }
     // ¿alcanza? (se recalcula cada cuadro sin rearmar el DOM)
@@ -193,6 +257,7 @@ export class HUD {
       const sinPlata = c.costo && (J.oro < c.costo.oro || J.madera < c.costo.madera);
       const sinComida = c.pob && J.pob + c.pob > J.pobMax;
       b.disabled = !!c.requisito;
+      b.classList.toggle("hecha", !!c.hecha);
       b.classList.toggle("caro", !!(sinPlata || sinComida));
     });
   }
@@ -201,7 +266,7 @@ export class HUD {
     const c = this.botones[+b.dataset.i]; if (!c) return;
     const J = this.m.jugadores[JUGADOR];
     const costo = c.costo ? `<div class="costo">${c.costo.oro ? `<span class="${J.oro < c.costo.oro ? "no" : ""}">${RECURSO_SVG.oro}${c.costo.oro}</span>` : ""}${c.costo.madera ? `<span class="${J.madera < c.costo.madera ? "no" : ""}">${RECURSO_SVG.madera}${c.costo.madera}</span>` : ""}${c.pob ? `<span class="${J.pob + c.pob > J.pobMax ? "no" : ""}">${RECURSO_SVG.pob}${c.pob}</span>` : ""}</div>` : "";
-    this.tip.innerHTML = `<b>${c.titulo}</b> <kbd>${TECLAS_GRILLA[+b.dataset.i].toUpperCase()}</kbd>${costo}${c.requisito ? `<p class="no">${c.requisito}</p>` : ""}${c.desc ? `<p>${c.desc}</p>` : ""}`;
+    this.tip.innerHTML = `<b>${c.titulo}</b> <kbd>${nombreTecla(teclaGrilla(+b.dataset.i))}</kbd>${costo}${c.requisito ? `<p class="no">${c.requisito}</p>` : ""}${c.desc ? `<p>${c.desc}</p>` : ""}`;
     const r = b.getBoundingClientRect();
     this.tip.hidden = false;
     this.tip.style.left = Math.min(window.innerWidth - 300, r.left) + "px";
@@ -217,7 +282,7 @@ export class HUD {
     this.acc.comando(c);
     return true;
   }
-  tecla(letra) { const i = TECLAS_GRILLA.indexOf(letra); return i >= 0 ? this.ejecutar(i) : false; }
+  tecla(k) { const i = config.valor.teclas.grilla.indexOf(k); return i >= 0 ? this.ejecutar(i) : false; }
 }
 
 /* ================================================================ minimapa */
@@ -290,7 +355,7 @@ class Minimapa {
     // avisos de ataque
     const t = performance.now() / 1000;
     for (const a of this.acc.alertas()) {
-      const f = (t - a.t) % 1; ctx.strokeStyle = `rgba(255,70,70,${1 - f})`; ctx.lineWidth = 2;
+      const f = (t - a.t) % 1; ctx.strokeStyle = a.oro ? `rgba(255,214,90,${1 - f})` : `rgba(255,70,70,${1 - f})`; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(a.x * esc, a.z * esc, 4 + f * 14, 0, Math.PI * 2); ctx.stroke();
     }
   }

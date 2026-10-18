@@ -31,7 +31,7 @@ body[data-puntero="recurso"] #lienzo { cursor: pointer; }
 .capa { position: fixed; inset: 0; z-index: 30; display: flex; padding: 24px; overflow-y: auto;
   background: radial-gradient(ellipse at 50% 45%, rgba(8, 10, 14, .35) 0%, rgba(8, 10, 14, .82) 75%); }
 .capa[hidden] { display: none; }
-#pausa, #fin { background: rgba(8, 10, 14, .72); backdrop-filter: blur(4px); }
+#pausa, #fin, #config { background: rgba(8, 10, 14, .72); backdrop-filter: blur(4px); }
 .menu-caja { margin: auto; width: min(520px, 100%); display: grid; gap: 16px; justify-items: stretch; text-align: center; padding: 34px 34px 28px;
   background: linear-gradient(180deg, rgba(20, 23, 29, .9), rgba(12, 14, 18, .94)); border: 1px solid var(--linea); border-radius: 6px;
   box-shadow: 0 30px 80px rgba(0, 0, 0, .6), inset 0 1px 0 rgba(255, 255, 255, .05); position: relative; }
@@ -158,3 +158,47 @@ body.en-juego #hud { display: block; }
   .minimapa canvas { width: 150px; height: 150px; }
   .sup { gap: 10px; padding-left: 10px; } .rec { min-width: 0; font-size: 15px; }
 }
+
+/* botones de giro de cámara, sobre el borde del minimapa */
+.minimapa { position: relative; }
+.giro { position: absolute; top: -34px; right: 0; display: flex; gap: 4px; }
+.giro button { width: 30px; height: 28px; padding: 0; border: 1px solid var(--linea); border-radius: 3px; background: var(--panel); color: var(--oro-claro); font: 700 15px/1 var(--f-ui); backdrop-filter: blur(6px); transition: transform .25s; }
+.giro button:hover { background: rgba(227, 184, 90, .15); }
+#brujula { font-family: var(--f-tit); font-size: 13px; }
+
+/* ---------------------------------------------------------------- configuración */
+.menu-caja.ancha { width: min(640px, 100%); text-align: left; }
+.titulo.chico { font-size: clamp(28px, 6vw, 40px) !important; }
+.solapas { display: flex; gap: 4px; padding: 3px; background: rgba(0, 0, 0, .35); border: 1px solid rgba(255, 255, 255, .08); border-radius: 4px; }
+.solapas button { flex: 1; border: 0; background: none; padding: 10px; border-radius: 3px; font: 700 12px/1 var(--f-ui); letter-spacing: .18em; text-transform: uppercase; color: var(--apagado); }
+.solapas button[aria-selected="true"] { background: linear-gradient(180deg, #3a3122, #2a2418); color: var(--oro-claro); box-shadow: inset 0 0 0 1px var(--linea); }
+.panel-cfg { display: grid; gap: 2px; max-height: min(52vh, 460px); overflow-y: auto; padding-right: 4px; }
+.fila-cfg { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 4px; border-bottom: 1px solid rgba(255, 255, 255, .05); }
+.fila-cfg b { display: block; font-weight: 600; font-size: 14.5px; }
+.fila-cfg small { display: block; color: var(--apagado); font-size: 12.5px; margin-top: 2px; }
+.fila-cfg .selector { flex: none; }
+.fila-cfg output { min-width: 46px; text-align: right; font-variant-numeric: tabular-nums; color: var(--oro-claro); font-weight: 700; }
+.fila-cfg input[type="range"] { width: 170px; accent-color: var(--oro); }
+.interruptor { flex: none; position: relative; width: 46px; height: 26px; padding: 0; border: 1px solid rgba(255, 255, 255, .18); border-radius: 13px; background: rgba(0, 0, 0, .4); transition: background .2s; }
+.interruptor i { position: absolute; left: 3px; top: 3px; width: 18px; height: 18px; border-radius: 50%; background: #8a847a; transition: transform .2s, background .2s; }
+.interruptor[aria-checked="true"] { background: linear-gradient(180deg, #5a4520, #3d2f16); border-color: var(--linea); }
+.interruptor[aria-checked="true"] i { transform: translateX(20px); background: var(--oro-claro); }
+.panel-cfg h4 { margin: 14px 4px 4px; font: 700 11px/1 var(--f-ui); letter-spacing: .22em; text-transform: uppercase; color: var(--oro); display: flex; align-items: center; justify-content: space-between; }
+.presets { display: flex; gap: 4px; }
+.presets button { border: 1px solid rgba(255, 255, 255, .15); background: rgba(255, 255, 255, .04); border-radius: 3px; padding: 5px 8px; font: 700 10px/1 var(--f-ui); letter-spacing: .12em; color: var(--tinta); }
+.nota { margin: 2px 4px 8px; color: var(--apagado); font-size: 12.5px; }
+.tecla-cfg { flex: none; min-width: 76px; padding: 7px 10px; border: 1px solid rgba(255, 255, 255, .22); border-bottom-width: 3px; border-radius: 4px; background: rgba(0, 0, 0, .35); font: 700 13px/1 var(--f-ui); color: var(--tinta); }
+.tecla-cfg:hover { border-color: var(--oro); }
+.tecla-cfg.esperando { border-color: var(--verde); color: var(--verde); animation: late 1s ease-in-out infinite; font-size: 11px; }
+@keyframes late { 50% { opacity: .55; } }
+.grilla-cfg { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 0 4px 6px; }
+.grilla-cfg .tecla-cfg { min-width: 0; padding: 12px 4px; }
+.pie-cfg { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: end; }
+.pie-cfg .jugar { margin: 0; }
+.sec.chico { padding: 8px 14px; }
+
+/* nivel del reino y logros */
+.nivel-reino { align-self: center; padding: 5px 10px; border: 1px solid var(--linea); border-radius: 3px; background: linear-gradient(180deg, rgba(227, 184, 90, .16), rgba(227, 184, 90, .04)); font: 700 11px/1 var(--f-tit); letter-spacing: .12em; text-transform: uppercase; color: var(--oro-claro); white-space: nowrap; }
+.aviso.logro { color: #fff6da; background: linear-gradient(180deg, rgba(120, 88, 24, .92), rgba(70, 50, 12, .92)); border-color: var(--oro); box-shadow: 0 0 22px rgba(227, 184, 90, .3); }
+.comandos button.hecha { filter: none; opacity: .6; border-color: var(--verde); cursor: default; }
+.comandos button.hecha::before { content: "✓"; position: absolute; right: 3px; bottom: 1px; z-index: 1; font: 700 14px/1 var(--f-ui); color: var(--verde); text-shadow: 0 1px 2px #000; }

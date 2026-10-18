@@ -35,7 +35,7 @@ export function crearRetratos(tipos, color, entorno) {
     r.render(escena, camara);
     res[tipo] = lienzo.toDataURL("image/png");
     escena.remove(objeto);
-    objeto.traverse(n => n.geometry?.dispose());
+    objeto.traverse(n => { if (n.geometry && !n.geometry.userData.compartida) n.geometry.dispose(); });
   }
   U.uNiebla.value = nieblaReal; U.uLado.value = ladoReal;
   r.dispose();

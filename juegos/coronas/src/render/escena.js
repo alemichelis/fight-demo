@@ -1,5 +1,6 @@
 // Escena, luz, cámara de estrategia y posprocesado.
-// Calidades: alta (GTAO + bloom + SMAA + sombras 4096), media (bloom + SMAA + sombras 2048), baja (sin posproceso).
+// Los gráficos se ajustan en vivo con aplicarGraficos() (ver src/config.js): resolución, sombras, oclusión ambiental
+// (GTAO), bloom y suavizado SMAA. Si no hay ningún efecto prendido se dibuja directo, sin pasar por el compositor.
 
 import * as THREE from "three";
 import { Sky } from "three/addons/objects/Sky.js";
@@ -11,11 +12,6 @@ import { SMAAPass } from "three/addons/postprocessing/SMAAPass.js";
 import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 
-export const CALIDADES = {
-  alta:  { ratio: 2,   sombras: 4096, gtao: true,  bloom: true,  smaa: true },
-  media: { ratio: 1.5, sombras: 2048, gtao: false, bloom: true,  smaa: true },
-  baja:  { ratio: 1,   sombras: 1024, gtao: false, bloom: false, smaa: false }
-};
 
 // toque final: viñeta suave, un poco más de contraste y tono cálido en las luces
 const Gradacion = {
@@ -45,10 +41,10 @@ const Saneador = {
       gl_FragColor = vec4(min(c.rgb, vec3(64.0)), c.a); }`
 };
 
-export function crearEscena(lienzo, calidad, lado) {
-  const Q = CALIDADES[calidad] || CALIDADES.media;
-  const renderer = new THREE.WebGLRenderer({ canvas: lienzo, antialias: !Q.smaa, powerPreference: "high-performance", stencil: false });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, Q.ratio));
+export function crearEscena(lienzo, G, lado) {
+  // el antialias del lienzo sólo sirve cuando se dibuja directo (sin SMAA); se decide una vez al crear el contexto
+  const renderer = new THREE.WebGLRenderer({ canvas: lienzo, antialias: !G.smaa, powerPreference: "high-performance", stencil: false });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, G.ratio));
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -77,8 +73,8 @@ export function crearEscena(lienzo, calidad, lado) {
   escena.fog = new THREE.Fog("#b9c6cf", 90, 230);
 
   const luzSol = new THREE.DirectionalLight("#ffe9cf", 2.9);
-  luzSol.castShadow = true;
-  luzSol.shadow.mapSize.set(Q.sombras, Q.sombras);
+  luzSol.castShadow = G.sombras > 0;
+  luzSol.shadow.mapSize.set(G.sombras || 1024, G.sombras || 1024);
   luzSol.shadow.bias = -0.0004; luzSol.shadow.normalBias = 0.035;
   luzSol.shadow.radius = 3;
   const sc = luzSol.shadow.camera; sc.near = 1; sc.far = 160;
@@ -87,37 +83,59 @@ export function crearEscena(lienzo, calidad, lado) {
   escena.add(hemi);
 
   /* ---------------------------------------------------------------- posprocesado */
-  let composer = null, gtao = null, bloom = null, smaa = null;
-  if (Q.bloom || Q.gtao || Q.smaa) {
-    const rt = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: Q.smaa ? 0 : 4 });
+  // el compositor se arma la primera vez que hace falta; el GTAO (el más pesado en memoria) recién cuando se prende
+  let composer = null, gtao = null, bloom = null, smaa = null, usarCompositor = false, ancho = 1, alto = 1;
+  function armarCompositor() {
+    if (composer) return;
+    const rt = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType });
     composer = new EffectComposer(renderer, rt);
     composer.addPass(new RenderPass(escena, camara));
-    if (Q.gtao) {
-      gtao = new GTAOPass(escena, camara, 1, 1);
-      gtao.blendIntensity = 0.85;
-      gtao.updateGtaoMaterial({ radius: 0.6, distanceExponent: 1.4, thickness: 1.2, scale: 1.0, samples: 12 });
-      gtao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 16 });
-      composer.addPass(gtao);
-    }
     composer.addPass(new ShaderPass(Saneador));
     // umbral alto: brillan el fuego y las luces, no el metal
-    if (Q.bloom) { bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.3, 0.55, 1.05); composer.addPass(bloom); }
+    bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.3, 0.55, 1.05); composer.addPass(bloom);
     composer.addPass(new OutputPass());
     composer.addPass(new ShaderPass(Gradacion));
-    if (Q.smaa) { smaa = new SMAAPass(); composer.addPass(smaa); }
+    smaa = new SMAAPass(); composer.addPass(smaa);
   }
+  function aplicarGraficos(g) {
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, g.ratio));
+    // sombras: apagarlas o cambiar el tamaño del mapa (se libera el anterior y three lo rehace)
+    luzSol.castShadow = g.sombras > 0;
+    if (g.sombras > 0 && luzSol.shadow.mapSize.x !== g.sombras) {
+      luzSol.shadow.mapSize.set(g.sombras, g.sombras);
+      luzSol.shadow.map?.dispose(); luzSol.shadow.map = null;
+    }
+    usarCompositor = g.gtao || g.bloom || g.smaa;
+    if (usarCompositor) {
+      armarCompositor();
+      if (g.gtao && !gtao) {
+        gtao = new GTAOPass(escena, camara, 1, 1);
+        gtao.blendIntensity = 0.85;
+        gtao.updateGtaoMaterial({ radius: 0.6, distanceExponent: 1.4, thickness: 1.2, scale: 1.0, samples: 12 });
+        gtao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 16 });
+        composer.insertPass(gtao, 1);
+      }
+      if (gtao) gtao.enabled = g.gtao;
+      bloom.enabled = g.bloom; smaa.enabled = g.smaa;
+    }
+    sombraTexels = g.sombras || 1024;
+    redimensionar();
+  }
+  let sombraTexels = G.sombras || 1024;
 
   /* ---------------------------------------------------------------- cámara de estrategia */
   const cam = {
     objetivo: new THREE.Vector3(lado / 2, 0, lado / 2),
     distancia: 30, distanciaObj: 30, min: 13, max: 58,
-    giro: 0,                 // ángulo alrededor del eje Y
+    giro: 0, giroObj: 0,     // ángulo alrededor del eje Y (giroObj es a donde va; giro, donde está: así rota suave)
+    inclinacion: 0,          // ajuste de la inclinación en grados (arrastrando con el botón del medio)
     temblor: 0
   };
   function ubicarCamara(alturaEn) {
     cam.distancia += (cam.distanciaObj - cam.distancia) * 0.18;
+    cam.giro += (cam.giroObj - cam.giro) * 0.2;
     const t = (cam.distancia - cam.min) / (cam.max - cam.min);
-    const incl = THREE.MathUtils.degToRad(46 + t * 18);           // de cerca, más cinematográfica; de lejos, más cenital
+    const incl = THREE.MathUtils.degToRad(THREE.MathUtils.clamp(46 + t * 18 + cam.inclinacion, 30, 80));   // de cerca, más cinematográfica; de lejos, más cenital
     cam.objetivo.y = alturaEn(cam.objetivo.x, cam.objetivo.z);
     const off = new THREE.Vector3(Math.sin(cam.giro) * Math.cos(incl), Math.sin(incl), Math.cos(cam.giro) * Math.cos(incl)).multiplyScalar(cam.distancia);
     camara.position.copy(cam.objetivo).add(off);
@@ -126,7 +144,7 @@ export function crearEscena(lienzo, calidad, lado) {
     // la sombra sigue a lo que se mira, con el cuadro alineado a la grilla de texels para que no «hierva» al mover
     const alcance = 16 + cam.distancia * 0.75;
     sc.left = -alcance; sc.right = alcance; sc.top = alcance; sc.bottom = -alcance; sc.updateProjectionMatrix();
-    const texel = alcance * 2 / Q.sombras;
+    const texel = alcance * 2 / sombraTexels;
     const centro = cam.objetivo.clone();
     const dirSol = sol.clone().normalize();
     // alineado en el espacio de la luz
@@ -139,6 +157,7 @@ export function crearEscena(lienzo, calidad, lado) {
 
   function redimensionar() {
     const w = lienzo.clientWidth || window.innerWidth, h = lienzo.clientHeight || window.innerHeight;
+    ancho = w; alto = h;
     renderer.setSize(w, h, false);
     camara.aspect = w / h; camara.updateProjectionMatrix();
     if (composer) {
@@ -147,7 +166,8 @@ export function crearEscena(lienzo, calidad, lado) {
     }
   }
 
-  function dibujar() { if (composer) composer.render(); else renderer.render(escena, camara); }
+  function dibujar() { if (usarCompositor) composer.render(); else renderer.render(escena, camara); }
 
-  return { renderer, escena, camara, cam, luzSol, sol, ubicarCamara, redimensionar, dibujar, calidad: Q };
+  aplicarGraficos(G);
+  return { renderer, escena, camara, cam, luzSol, sol, ubicarCamara, redimensionar, dibujar, aplicarGraficos };
 }

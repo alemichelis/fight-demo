@@ -36,7 +36,8 @@ export function prepararMateriales(tx) {
     caballo: std({ color: "#6a4630", roughness: 0.55 }),
     crin: std({ color: "#2a1d14", roughness: 0.9 }),
     oscuro: std({ color: "#120e0b", roughness: 0.8 }),
-    roca: std({ map: copia(tx.roca.mapa, 1.2), normalMap: copia(tx.roca.normal, 1.2), roughness: 0.88, flatShading: true }),
+    roca: std({ map: copia(tx.roca.mapa, 1.2), normalMap: copia(tx.roca.normal, 1.2), roughness: 0.92, flatShading: true }),
+    rocaCerro: std({ map: copia(tx.roca.mapa, 1.6), normalMap: copia(tx.roca.normal, 1.6), normalScale: new THREE.Vector2(1.6, 1.6), color: "#c2ab90", roughness: 0.95, envMapIntensity: 0.4, flatShading: true }),
     fuego: new THREE.MeshStandardMaterial({ color: "#ff8a2a", emissive: "#ff6a10", emissiveIntensity: 4, roughness: 1 }),
     vela: new THREE.MeshStandardMaterial({ color: "#ffd890", emissive: "#ffb347", emissiveIntensity: 2.2, roughness: 1 }),
     cultivo: std({ color: "#5f8a2e", roughness: 1 })
@@ -235,29 +236,42 @@ function caballero(M) {
 
 /* ================================================================ edificios */
 
-function castillo(M) {
-  const g = new THREE.Group();
+// El castillo crece con el reino: 1 Aldea, 2 Fortaleza (torres y torre del homenaje más altas, más estandartes),
+// 3 Ciudadela (aguja central con cúpula dorada y braseros encendidos en las torres).
+function castillo(M, nivel = 1) {
+  const g = new THREE.Group(), n = Math.max(1, Math.min(3, nivel)), extra = (n - 1) * 0.55;
   g.add(caja(3.9, 0.3, 3.9, MAT.piedraBase, 0, 0.12, 0));
   // muralla y torres de esquina
-  g.add(caja(3.3, 1.3, 3.3, MAT.piedra, 0, 0.9, 0));
-  almenas(g, 3.3, 3.3, 1.65, MAT.piedra);
+  g.add(caja(3.3, 1.3 + extra * 0.4, 3.3, MAT.piedra, 0, 0.9 + extra * 0.2, 0));
+  almenas(g, 3.3, 3.3, 1.65 + extra * 0.4, MAT.piedra);
+  const hT = 2.2 + extra;
   for (const [x, z] of [[-1.62, -1.62], [1.62, -1.62], [-1.62, 1.62], [1.62, 1.62]]) {
-    g.add(cil(0.48, 0.55, 2.2, 14, MAT.piedra, x, 1.25, z));
-    g.add(cil(0.56, 0.5, 0.18, 14, MAT.piedra, x, 2.4, z));
-    g.add(cono(0.66, 1.25, 14, M.tejado, x, 3.1, z));
-    g.add(esfera(0.06, MAT.oro, x, 3.76, z, 8, 6));
+    g.add(cil(0.48 + (n - 1) * 0.04, 0.55 + (n - 1) * 0.05, hT, 14, MAT.piedra, x, 0.15 + hT / 2, z));
+    g.add(cil(0.56, 0.5, 0.18, 14, MAT.piedra, x, 0.3 + hT, z));
+    g.add(cono(0.66, 1.25 + (n - 1) * 0.2, 14, M.tejado, x, 1.0 + hT + (n - 1) * 0.1, z));
+    g.add(esfera(0.06 + (n - 1) * 0.02, MAT.oro, x, 1.66 + hT + (n - 1) * 0.2, z, 8, 6));
+    if (n >= 3) g.add(caja(0.16, 0.12, 0.16, MAT.fuego, x * 1.18, 0.5 + hT * 0.75, z * 1.18));
   }
   // torre del homenaje
-  g.add(caja(1.7, 2.1, 1.7, MAT.piedra, 0, 2.2, 0.1));
-  almenas(g, 1.7, 1.7, 3.35, MAT.piedra, 0.28);
-  g.add(dosAguas(1.9, 1.85, 1.2, M.tejado, 0, 3.3, 0.1));
-  for (const x of [-0.45, 0.45]) g.add(caja(0.18, 0.34, 0.04, MAT.vela, x, 2.5, 0.97));
+  const hK = 2.1 + extra * 1.2;
+  g.add(caja(1.7, hK, 1.7, MAT.piedra, 0, 1.15 + hK / 2, 0.1));
+  almenas(g, 1.7, 1.7, 2.3 + hK - 1.05, MAT.piedra, 0.28);
+  g.add(dosAguas(1.9, 1.85, 1.2, M.tejado, 0, 2.25 + hK - 1.05, 0.1));
+  for (const x of [-0.45, 0.45]) g.add(caja(0.18, 0.34, 0.04, MAT.vela, x, 2.5 + extra, 0.97));
+  if (n >= 2) for (const x of [-0.45, 0.45]) g.add(caja(0.16, 0.3, 0.04, MAT.vela, x, 1.95, 0.97));
+  if (n >= 3) {
+    // aguja central con cúpula dorada
+    g.add(cil(0.38, 0.45, 1.6, 14, MAT.piedra, 0, 3.4 + hK - 1.05, 0.1));
+    g.add(malla(new THREE.SphereGeometry(0.46, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2), MAT.oro, 0, 4.2 + hK - 1.05, 0.1));
+    g.add(cono(0.08, 0.6, 8, MAT.oro, 0, 4.85 + hK - 1.05, 0.1));
+  }
   // portón con arco
   g.add(caja(0.9, 1.0, 0.1, MAT.oscuro, 0, 0.75, 1.66));
   g.add(malla(new THREE.CylinderGeometry(0.45, 0.45, 0.1, 16, 1, false, -Math.PI / 2, Math.PI).rotateX(Math.PI / 2), MAT.oscuro, 0, 1.25, 1.66));
   g.add(caja(0.98, 0.08, 0.14, MAT.maderaOscura, 0, 0.27, 1.7));
   for (const x of [-1, 1]) { g.add(malla(new THREE.PlaneGeometry(0.42, 0.9, 3, 6), M.colgante, x * 0.82, 1.15, 1.67)); }
-  bandera(g, M, 0, 4.0, 0.1, 1.0);
+  if (n >= 2) for (const z of [-1, 1]) { const c = malla(new THREE.PlaneGeometry(0.42, 0.9, 3, 6), M.colgante, 1.67, 1.15, z * 0.82); c.rotation.y = Math.PI / 2; g.add(c); }
+  bandera(g, M, 0, 2.9 + hK - 1.05 + (n >= 3 ? 1.5 : 0), 0.1, 1.0);
   return g;
 }
 
@@ -336,30 +350,106 @@ function torre(M) {
   return g;
 }
 
+// Barricada: estacas con punta atadas a dos travesaños. La vista la orienta según las barricadas vecinas
+// (userData.eje = "x" o "z") para que una línea se lea como una empalizada continua.
+function barricada(M) {
+  const g = new THREE.Group();
+  for (let i = 0; i < 5; i++) {
+    const x = -0.4 + i * 0.2, h = 0.9 + ((i * 37) % 5) * 0.05;
+    const e = cil(0.075, 0.085, h, 7, MAT.madera, x, h / 2, 0); e.rotation.z = (i % 2 ? 0.04 : -0.04); g.add(e);
+    g.add(cono(0.076, 0.18, 7, MAT.madera, x, h + 0.09, 0));
+  }
+  for (const y of [0.3, 0.65]) g.add(caja(1.02, 0.07, 0.08, MAT.maderaOscura, 0, y, 0.09));
+  const puntal = caja(0.06, 0.75, 0.06, MAT.maderaOscura, 0, 0.32, -0.22); puntal.rotation.x = 0.5; g.add(puntal);
+  g.add(caja(0.12, 0.06, 0.4, M.tela, 0.42, 0.66, 0.0));
+  return g;
+}
+
+// Muralla de piedra: bloque almenado, más alto que la barricada
+function muralla(M) {
+  const g = new THREE.Group();
+  g.add(caja(1.0, 1.25, 0.8, MAT.piedra, 0, 0.62, 0));
+  g.add(caja(1.06, 0.1, 0.86, MAT.piedraBase, 0, 0.05, 0));
+  for (const x of [-0.33, 0.33]) g.add(caja(0.26, 0.22, 0.8, MAT.piedra, x, 1.36, 0));
+  g.add(caja(0.08, 0.3, 0.02, M.tela, 0, 0.85, 0.41));
+  return g;
+}
+
+// Catapulta: base de madera con cuatro ruedas, caballete y brazo de lanzamiento con una piedra en la cuchara
+function catapulta(M) {
+  const g = new THREE.Group(), P = {};
+  g.add(caja(0.75, 0.12, 1.2, MAT.madera, 0, 0.32, 0));
+  for (const x of [-0.32, 0.32]) g.add(caja(0.08, 0.1, 1.25, MAT.maderaOscura, x, 0.42, 0));
+  P.ruedas = [];
+  for (const [x, z] of [[-0.43, -0.4], [0.43, -0.4], [-0.43, 0.42], [0.43, 0.42]]) {
+    const r = new THREE.Group(); r.position.set(x, 0.24, z);
+    const disco = cil(0.24, 0.24, 0.07, 12, MAT.maderaOscura, 0, 0, 0); disco.rotation.z = Math.PI / 2; r.add(disco);
+    const aro = malla(new THREE.TorusGeometry(0.24, 0.025, 6, 16), MAT.hierro); aro.rotation.y = Math.PI / 2; r.add(aro);
+    g.add(r); P.ruedas.push(r);
+  }
+  // caballete
+  for (const x of [-0.26, 0.26]) { const pata = caja(0.08, 0.75, 0.08, MAT.madera, x, 0.75, -0.05); g.add(pata); }
+  g.add(caja(0.6, 0.08, 0.1, MAT.maderaOscura, 0, 1.1, -0.05));
+  // brazo (pivote en el eje del caballete)
+  const brazo = new THREE.Group(); brazo.position.set(0, 1.0, -0.05);
+  brazo.add(caja(0.09, 0.09, 1.25, MAT.madera, 0, 0, 0.35));
+  const cuchara = cil(0.13, 0.08, 0.1, 10, MAT.maderaOscura, 0, 0.06, 0.95); brazo.add(cuchara);
+  brazo.add(esfera(0.11, MAT.roca, 0, 0.16, 0.95, 10, 8));
+  brazo.add(caja(0.22, 0.22, 0.22, MAT.hierro, 0, -0.02, -0.3));
+  brazo.rotation.x = -0.35;
+  g.add(brazo); P.brazoCat = brazo;
+  g.add(caja(0.5, 0.2, 0.06, M.tela, 0, 0.5, -0.62));
+  g.userData.partes = P;
+  return g;
+}
+
+// Mina de oro: una ladera de roca con la boca de una cueva apuntalada, rieles que salen de adentro, farol y vagoneta.
+// La boca mira hacia +z; la vista la gira hacia el castillo más cercano.
 function mina() {
   const g = new THREE.Group();
-  const rocas = [[0, 0.55, -0.3, 1.25], [-0.85, 0.35, 0.1, 0.8], [0.9, 0.4, 0.05, 0.85], [0.4, 0.25, 0.75, 0.55], [-0.6, 0.2, -0.95, 0.6]];
-  rocas.forEach(([x, y, z, r], i) => {
-    const geo = new THREE.DodecahedronGeometry(r, 1), p = geo.attributes.position;
-    for (let k = 0; k < p.count; k++) p.setXYZ(k, p.getX(k) * (1 + Math.sin(k * 3.1 + i) * 0.12), p.getY(k) * (0.75 + Math.cos(k * 1.7) * 0.1), p.getZ(k) * (1 + Math.sin(k * 2.3) * 0.12));
-    geo.computeVertexNormals(); g.add(malla(geo, MAT.roca, x, y, z));
-  });
-  // vetas de oro
-  for (let i = 0; i < 9; i++) {
-    const c = malla(new THREE.OctahedronGeometry(0.1 + (i % 3) * 0.04), MAT.oro, Math.sin(i * 2.4) * 0.9, 0.3 + (i % 4) * 0.22, Math.cos(i * 2.4) * 0.6 - 0.1);
-    c.rotation.set(i, i * 2, 0); g.add(c);
-  }
-  // entrada apuntalada
-  g.add(caja(0.7, 0.7, 0.12, MAT.oscuro, 0, 0.38, 0.95));
-  for (const x of [-0.4, 0.4]) g.add(cil(0.06, 0.07, 0.85, 7, MAT.maderaOscura, x, 0.43, 1.02));
-  g.add(caja(0.98, 0.1, 0.14, MAT.maderaOscura, 0, 0.88, 1.02));
-  g.add(caja(0.14, 0.12, 0.08, MAT.vela, 0.48, 0.7, 1.07));
-  // vagoneta
-  const v = new THREE.Group(); v.position.set(0.85, 0, 1.15); v.rotation.y = -0.4;
-  v.add(caja(0.42, 0.22, 0.3, MAT.madera, 0, 0.24, 0));
-  for (const [x, z] of [[-0.14, -0.16], [0.14, -0.16], [-0.14, 0.16], [0.14, 0.16]]) { const r = cil(0.07, 0.07, 0.03, 10, MAT.hierro, x, 0.08, z); r.rotation.x = Math.PI / 2; v.add(r); }
-  for (let i = 0; i < 5; i++) v.add(malla(new THREE.OctahedronGeometry(0.07), MAT.oro, -0.12 + (i % 3) * 0.12, 0.38, -0.06 + (i > 2 ? 0.12 : 0)));
+  const roca = (r, x, y, z, sx, sy, sz, sem) => {
+    const geo = new THREE.DodecahedronGeometry(r, 2), p = geo.attributes.position;
+    for (let k = 0; k < p.count; k++) {
+      const n = Math.sin(p.getX(k) * 3.1 + sem) * Math.cos(p.getZ(k) * 2.7 + sem * 2) * 0.13 + Math.sin(p.getY(k) * 5 + sem) * 0.05;
+      p.setXYZ(k, p.getX(k) * (1 + n), p.getY(k) * (1 + n * 0.6), p.getZ(k) * (1 + n));
+    }
+    geo.computeVertexNormals();
+    const m = malla(geo, MAT.rocaCerro, x, y, z); m.scale.set(sx, sy, sz); return m;
+  };
+  // la ladera: un cerro grande atrás y dos estribaciones que enmarcan la entrada
+  g.add(roca(1.55, 0, 0.35, -0.55, 1.15, 1.0, 0.9, 1));
+  g.add(roca(1.0, -1.15, 0.15, 0.15, 0.9, 0.95, 1.0, 2));
+  g.add(roca(1.0, 1.2, 0.1, 0.1, 0.95, 0.9, 1.0, 3));
+  g.add(roca(0.7, -0.4, 1.45, -0.7, 1.1, 0.8, 1.0, 4));
+  // túnel: un medio cilindro oscuro metido en la roca, con brillo de antorchas al fondo
+  // (rotateX(-90°) deja la mitad del cilindro hacia arriba: un arco a lo largo de z)
+  const tunel = malla(new THREE.CylinderGeometry(0.56, 0.56, 1.6, 16, 1, true, -Math.PI / 2, Math.PI).rotateX(-Math.PI / 2), MAT.oscuro, 0, 0.0, 0.45);
+  tunel.scale.y = 1.6; MAT.oscuro.side = THREE.DoubleSide; g.add(tunel);
+  g.add(caja(1.1, 0.02, 1.6, MAT.oscuro, 0, 0.01, 0.45));
+  const fondo = malla(new THREE.CircleGeometry(0.5, 16, 0, Math.PI), MAT.fuego, 0, 0.0, -0.32); fondo.scale.y = 1.6; g.add(fondo);
+  g.add(esfera(0.07, MAT.vela, 0.32, 0.38, -0.2, 8, 6));
+  // marco apuntalado en la boca
+  for (const x of [-0.58, 0.58]) { const poste = cil(0.07, 0.08, 0.95, 7, MAT.maderaOscura, x, 0.47, 1.2); poste.rotation.z = x < 0 ? 0.06 : -0.06; g.add(poste); }
+  g.add(caja(1.45, 0.13, 0.17, MAT.maderaOscura, 0, 0.98, 1.2));
+  for (const x of [-1, 1]) { const r = caja(0.07, 0.5, 0.07, MAT.madera, x * 0.42, 0.78, 1.22); r.rotation.z = x * 0.75; g.add(r); }
+  // farol colgando del dintel
+  g.add(cil(0.006, 0.006, 0.18, 3, MAT.hierro, 0.35, 0.83, 1.28));
+  g.add(caja(0.09, 0.12, 0.09, MAT.vela, 0.35, 0.7, 1.28));
+  // rieles que salen de la cueva
+  for (const x of [-0.2, 0.2]) g.add(caja(0.03, 0.03, 2.1, MAT.hierro, x, 0.05, 1.0));
+  for (let i = 0; i < 7; i++) g.add(caja(0.58, 0.035, 0.08, MAT.madera, 0, 0.025, 0.05 + i * 0.3));
+  // vagoneta con oro sobre los rieles
+  const v = new THREE.Group(); v.position.set(0, 0, 1.75);
+  v.add(caja(0.48, 0.24, 0.36, MAT.madera, 0, 0.26, 0));
+  v.add(caja(0.5, 0.04, 0.38, MAT.hierro, 0, 0.39, 0));
+  for (const [x, z] of [[-0.2, -0.12], [0.2, -0.12], [-0.2, 0.12], [0.2, 0.12]]) { const r = cil(0.07, 0.07, 0.03, 10, MAT.hierro, x, 0.08, z); r.rotation.z = Math.PI / 2; v.add(r); }
+  for (let i = 0; i < 6; i++) v.add(malla(new THREE.OctahedronGeometry(0.075), MAT.oro, -0.13 + (i % 3) * 0.13, 0.44 + (i > 2 ? 0.05 : 0), -0.07 + (i > 2 ? 0.12 : 0)));
   g.add(v);
+  // vetas de oro asomando en la roca y cascotes al pie
+  [[-0.9, 0.7, 0.55], [0.95, 0.55, 0.6], [-0.3, 1.25, 0.35], [0.6, 1.05, 0.15], [-1.3, 0.35, 0.8]].forEach(([x, y, z], i) => {
+    const c = malla(new THREE.OctahedronGeometry(0.11 + (i % 2) * 0.05), MAT.oro, x, y, z); c.rotation.set(i, i * 1.7, 0.4); g.add(c);
+  });
+  for (let i = 0; i < 6; i++) g.add(roca(0.12 + (i % 3) * 0.05, -0.95 + i * 0.38, 0.05, 1.25 + (i % 2) * 0.25, 1, 0.7, 1, 10 + i));
   return g;
 }
 
@@ -378,7 +468,7 @@ export function andamio(lado) {
 
 /* ================================================================ catálogo y GLB */
 
-const FABRICAS = { peon, soldado, arquero, caballero, castillo, granja, cuartel, herreria, torre, mina };
+const FABRICAS = { peon, soldado, arquero, caballero, catapulta, castillo, granja, cuartel, herreria, torre, barricada, muralla, mina };
 const cargador = new GLTFLoader();
 const glbs = new Map();
 
@@ -388,11 +478,25 @@ function cargarGLB(ruta) {
 }
 
 // Devuelve { objeto, partes, mixer?, acciones? }. «objeto» es un Group cuyo origen es el centro de la base.
-export function crearModelo(tipo, color) {
+// Los edificios (sin partes animadas) se arman una sola vez por tipo, color y nivel y después se clonan compartiendo
+// la geometría: construir o subir de nivel no vuelve a generar mallas. Las unidades se arman cada vez porque sus
+// partes se animan por separado.
+const plantillas = new Map();
+function plantilla(tipo, M, nivel) {
+  const clave = `${tipo}|${M.tela.color.getHexString()}|${nivel}`;
+  let p = plantillas.get(clave);
+  if (!p) { p = FABRICAS[tipo](M, nivel); p.traverse(n => { if (n.geometry) n.geometry.userData.compartida = true; }); plantillas.set(clave, p); }
+  return p.clone();
+}
+export function precargar(tipos, colores) {
+  for (const c of colores) for (const t of tipos) for (const n of t === "castillo" ? [1, 2, 3] : [1]) plantilla(t, equipo(c), n);
+}
+
+export function crearModelo(tipo, color, nivel = 1) {
   const def = UNIDADES[tipo] || EDIFICIOS[tipo] || (tipo === "mina" ? MINA : null);
   const M = equipo(color || "#999999");
   const raiz = new THREE.Group();
-  const proc = FABRICAS[tipo](M);
+  const proc = UNIDADES[tipo] ? FABRICAS[tipo](M, nivel) : plantilla(tipo, M, nivel);
   raiz.add(proc);
   const res = { objeto: raiz, partes: proc.userData.partes || {}, procedural: true };
   const glb = def?.modelo?.glb;

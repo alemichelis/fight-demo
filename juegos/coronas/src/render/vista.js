@@ -96,6 +96,14 @@ export class Vista {
     const flecha = new THREE.CylinderGeometry(0.012, 0.012, 0.55, 4).rotateX(Math.PI / 2);
     this.flechas = new THREE.InstancedMesh(flecha, new THREE.MeshStandardMaterial({ color: "#3a2a1a", roughness: 0.6 }), 200);
     this.flechas.count = 0; this.flechas.frustumCulled = false;
+    // rocas de catapulta
+    this.rocas = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(0.16, 0), new THREE.MeshStandardMaterial({ color: "#7d7468", roughness: 0.9, flatShading: true }), 60);
+    this.rocas.count = 0; this.rocas.frustumCulled = false; this.rocas.castShadow = true;
+    this.escena.add(this.rocas);
+    // fantasma de una línea de muros (cubos verdes o rojos por casilla)
+    this.linea = new THREE.InstancedMesh(new THREE.BoxGeometry(0.96, 0.9, 0.96).translate(0, 0.45, 0), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.45, depthWrite: false }), 64);
+    this.linea.count = 0; this.linea.frustumCulled = false; this.linea.renderOrder = 4;
+    this.escena.add(this.linea);
     this.escena.add(this.flechas);
     // marcas de clic y bandera de reunión
     this.marcas = [];
@@ -121,6 +129,11 @@ export class Vista {
       if (!visible) continue;
       if (e.clase === "unidad") this.actualizarUnidad(e, v, dt, alfa);
       else if (e.clase === "edificio") this.actualizarEdificio(e, v, dt);
+      else if (e.clase === "mina" && Math.random() < dt * 5) {
+        // destellos dorados: la mina se distingue de lejos entre las rocas
+        const a = Math.random() * Math.PI * 2, r = 0.5 + Math.random() * 1.1;
+        this.particulas.push({ x: e.x + Math.cos(a) * r, y: v.obj.position.y + 0.4 + Math.random() * 0.9, z: e.z + Math.sin(a) * r, vx: 0, vy: 0.35, vz: 0, vida: 1.1, t: 0, tam: 0.16, crece: -0.1, c: [1, 0.78, 0.25], a: 0.9, aditiva: true });
+      }
       // anillo de selección / puntero
       const sel = this.seleccion.has(e.id), hov = this.hover === e.id;
       if (sel || hov) {
@@ -162,9 +175,9 @@ export class Vista {
 
   crear(e) {
     const color = e.dueño >= 0 ? this.m.jugadores[e.dueño].color : null;
-    const mod = crearModelo(e.tipo, color);
+    const mod = crearModelo(e.tipo, color, e.nivel || 1);
     const obj = new THREE.Group(); obj.add(mod.objeto);
-    const v = { obj, mod, clase: e.clase, tipo: e.tipo, fase: Math.random() * 6, ang: e.ang, base: new Map(), completo: e.completo };
+    const v = { obj, mod, clase: e.clase, tipo: e.tipo, fase: Math.random() * 6, ang: e.ang, base: new Map(), completo: e.completo, nivel: e.nivel || 1 };
     // guardar las rotaciones de reposo para animar sumando encima
     for (const [k, p] of Object.entries(mod.partes)) if (p?.isObject3D) v.base.set(k, p.rotation.clone());
     obj.position.set(e.x, this.alturaEn(e.x, e.z), e.z);
@@ -172,9 +185,17 @@ export class Vista {
     if (e.clase === "unidad") obj.scale.setScalar(ESCALA_UNIDAD);
     if (e.clase === "edificio" || e.clase === "mina") {
       obj.position.y = this.alturaBase(e);
-      if (e.clase === "edificio") obj.rotation.y = e.dueño === 1 ? Math.PI : 0;     // la fachada mira hacia el centro del mapa
+      if (e.clase === "edificio") obj.rotation.y = (e.dueño === 1 ? Math.PI : 0) + (e.rot || 0) * Math.PI / 2;     // la fachada mira hacia el centro del mapa, más el giro elegido
+      if (EDIFICIOS[e.tipo]?.muro) obj.rotation.y = (this.ejeMuro(e) === "z" ? Math.PI / 2 : 0) + (e.rot || 0) * Math.PI / 2;
+      v.rot = e.rot || 0;
+      if (e.clase === "mina") {
+        // la boca de la cueva mira hacia el castillo inicial más cercano
+        let mejor = null, md = Infinity;
+        for (const b of this.m.mapa.bases) { const d = Math.hypot(b.x + 2 - e.x, b.z + 2 - e.z); if (d < md) { md = d; mejor = b; } }
+        if (mejor) obj.rotation.y = Math.atan2(mejor.x + 2 - e.x, mejor.z + 2 - e.z);
+      }
       this.terreno.despejar(e.tx, e.tz, e.lado);
-      if (!e.completo) { v.andamio = andamio(e.lado); obj.add(v.andamio); }
+      if (e.clase === "edificio" && !e.completo) { v.andamio = andamio(e.lado); obj.add(v.andamio); }
     }
     this.escena.add(obj);
     this.visuales.set(e.id, v);
@@ -186,7 +207,14 @@ export class Vista {
     for (const [dx, dz] of [[0, 0], [e.lado, 0], [0, e.lado], [e.lado, e.lado], [e.lado / 2, e.lado / 2]]) h = Math.min(h, this.alturaEn(e.tx + dx, e.tz + dz));
     return h;
   }
-  alturaEdificio(e) { return { castillo: 3.8, granja: 1.6, cuartel: 2.6, herreria: 2.5, torre: 4.9 }[e.tipo] || 2; }
+  alturaEdificio(e) { return e.tipo === "castillo" ? 3.8 + ((e.nivel || 1) - 1) * 1.1 : { granja: 1.6, cuartel: 2.6, herreria: 2.5, torre: 4.9, barricada: 1.1, muralla: 1.5 }[e.tipo] || 2; }
+
+  // un muro se alinea con los muros vecinos: si hay vecinos a lo largo de z, gira 90°
+  ejeMuro(e) {
+    const muro = (x, z) => { if (!this.m.dentro(x, z)) return false; const id = this.m.ocupa[z * this.m.N + x], o = id >= 0 && this.m.ents.get(id); return !!(o && EDIFICIOS[o.tipo]?.muro); };
+    const enX = muro(e.tx - 1, e.tz) || muro(e.tx + 1, e.tz), enZ = muro(e.tx, e.tz - 1) || muro(e.tx, e.tz + 1);
+    return enZ && !enX ? "z" : "x";
+  }
 
   /* ---------------------------------------------------------------- unidades */
 
@@ -200,6 +228,7 @@ export class Vista {
     const P = v.mod.partes;
     if (P.cargaOro) { P.cargaOro.visible = e.carga?.tipo === "oro"; P.cargaMadera.visible = e.carga?.tipo === "madera"; }
     if (v.mod.mixer) { this.animarGLB(v, e, dt); return; }
+    if (P.ruedas) { this.animarCatapulta(e, v, P, dt); return; }
     const b = (k, eje) => v.base.get(k)?.[eje] || 0;
     const vel = UNIDADES[e.tipo].velocidad;
     const tAtaque = this.m.tiempo - e.golpeT;
@@ -243,7 +272,25 @@ export class Vista {
 
   /* ---------------------------------------------------------------- edificios */
 
+  animarCatapulta(e, v, P, dt) {
+    // las ruedas giran según lo que avanzó; el brazo se dispara y vuelve a cargar
+    const avance = Math.hypot(e.x - e.px, e.z - e.pz);
+    for (const r of P.ruedas) r.rotation.x += avance / 0.24 * (dt / TICK) * 0.5;
+    const t = this.m.tiempo - e.golpeT;
+    P.brazoCat.rotation.x = t < 0.18 ? -0.35 + (t / 0.18) * 1.9 : t < 1.6 ? 1.55 - Math.min(1, (t - 0.18) / 1.4) * 1.9 : -0.35;
+  }
+
   actualizarEdificio(e, v, dt) {
+    if ((e.rot || 0) !== v.rot) { v.obj.rotation.y += ((e.rot || 0) - v.rot) * Math.PI / 2; v.rot = e.rot || 0; }
+    // subió de nivel: se cambia el modelo del castillo con una nube de polvo
+    if (e.tipo === "castillo" && (e.nivel || 1) !== v.nivel) {
+      v.obj.remove(v.mod.objeto);
+      v.mod.objeto.traverse(n => { if (n.geometry && !n.geometry.userData.compartida) n.geometry.dispose(); });
+      v.mod = crearModelo(e.tipo, this.m.jugadores[e.dueño].color, e.nivel);
+      v.obj.add(v.mod.objeto); v.nivel = e.nivel;
+      for (let i = 0; i < 40; i++) this.polvo(e.x + (Math.random() - 0.5) * 4.5, v.obj.position.y + Math.random() * 3, e.z + (Math.random() - 0.5) * 4.5, 1, [0.85, 0.78, 0.6], 1.6);
+      for (let i = 0; i < 24; i++) this.particulas.push({ x: e.x + (Math.random() - 0.5) * 3, y: v.obj.position.y + 2 + Math.random() * 3, z: e.z + (Math.random() - 0.5) * 3, vx: 0, vy: 0.8, vz: 0, vida: 1.4, t: 0, tam: 0.2, crece: -0.1, c: [1, 0.85, 0.4], a: 1, aditiva: true });
+    }
     if (!e.completo) {
       const p = Math.max(0.06, e.progreso);
       v.mod.objeto.scale.set(1, p, 1);
@@ -320,19 +367,22 @@ export class Vista {
 
   actualizarFlechas(alfa) {
     const mtx = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(1, 1, 1), p = new THREE.Vector3(), adelante = new THREE.Vector3(0, 0, 1), dir = new THREE.Vector3();
-    let n = 0;
+    let n = 0, nr = 0;
     for (const f of this.m.proyectiles) {
       if (n >= 200) break;
       const t = Math.min(1, (f.t + TICK * alfa) / f.dur), t2 = Math.min(1, t + 0.05);
-      const pos = (tt, out) => out.set(f.ox + (f.x - f.ox) * tt, f.oy + (this.alturaEn(f.x, f.z) + 0.6 - f.oy) * tt + Math.sin(tt * Math.PI) * (0.4 + f.dur * 1.6), f.oz + (f.z - f.oz) * tt);
+      const arco = f.tipo === "roca" ? 1.5 + f.dur * 2.6 : 0.4 + f.dur * 1.6;
+      const pos = (tt, out) => out.set(f.ox + (f.x - f.ox) * tt, f.oy + (this.alturaEn(f.x, f.z) + 0.6 - f.oy) * tt + Math.sin(tt * Math.PI) * arco, f.oz + (f.z - f.oz) * tt);
       pos(t, p); const sig = pos(t2, new THREE.Vector3());
       if (!this.m.visible(JUGADOR, p.x, p.z)) continue;
       dir.subVectors(sig, p).normalize();
       if (dir.lengthSq() < 0.5) dir.set(0, 0, 1);
       q.setFromUnitVectors(adelante, dir);
+      if (f.tipo === "roca") { if (nr < 60) this.rocas.setMatrixAt(nr++, mtx.compose(p, q, s)); continue; }
       this.flechas.setMatrixAt(n++, mtx.compose(p, q, s));
     }
     this.flechas.count = n; this.flechas.instanceMatrix.needsUpdate = true;
+    this.rocas.count = nr; this.rocas.instanceMatrix.needsUpdate = true;
   }
 
   nuevoAnillo(i) { const a = new THREE.Mesh(this.anillosGeo, this.matAnillo.propio); a.renderOrder = 2; this.escena.add(a); this.anillos[i] = a; return a; }
@@ -373,7 +423,19 @@ export class Vista {
 
   /* ---------------------------------------------------------------- fantasma para ubicar edificios */
 
-  mostrarFantasma(tipo, tx, tz, valido) {
+  // casillas: [{ x, z, ok }] de la línea de muros que se está por levantar (vacía = ocultar)
+  mostrarLinea(casillas) {
+    const mtx = new THREE.Matrix4(), col = new THREE.Color();
+    let n = 0;
+    for (const c of casillas) {
+      if (n >= 64) break;
+      mtx.makeTranslation(c.x + 0.5, this.alturaEn(c.x + 0.5, c.z + 0.5), c.z + 0.5);
+      this.linea.setMatrixAt(n, mtx); this.linea.setColorAt(n, col.set(c.ok ? "#6dff9e" : "#ff6b6b")); n++;
+    }
+    this.linea.count = n; this.linea.instanceMatrix.needsUpdate = true; if (this.linea.instanceColor) this.linea.instanceColor.needsUpdate = true;
+  }
+
+  mostrarFantasma(tipo, tx, tz, valido, rot = 0) {
     if (!tipo) { if (this.fantasma) this.fantasma.obj.visible = false; return; }
     if (!this.fantasma || this.fantasma.tipo !== tipo) {
       if (this.fantasma) this.escena.remove(this.fantasma.obj);
@@ -394,5 +456,6 @@ export class Vista {
     f.grilla.material.color.set(valido ? "#7dffa8" : "#ff6b6b");
     const x = tx + lado / 2, z = tz + lado / 2;
     f.obj.position.set(x, this.alturaEn(x, z) + 0.02, z);
+    f.obj.rotation.y = rot * Math.PI / 2;
   }
 }

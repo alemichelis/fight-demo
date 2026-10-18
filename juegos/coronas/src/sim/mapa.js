@@ -15,7 +15,8 @@ export function generarMapa(lado, semilla) {
 
   // bases: esquinas opuestas; minas del lado de afuera y expansiones en el medio
   const bases = [{ x: 18, z: N - 22 }, { x: N - 22, z: 18 }];
-  const minas = [{ x: 9, z: N - 14 }, { x: 34, z: N - 40 }];
+  // la mina propia a ~9 casillas del castillo (cerca, como en los RTS clásicos) y una expansión hacia el centro
+  const minas = [{ x: 10, z: N - 17 }, { x: 34, z: N - 40 }];
   const espejo = p => ({ x: N - p.x - (p.lado || 0), z: N - p.z - (p.lado || 0) });
 
   // ---- bosques por ruido (sólo en la mitad z >= x, la de la base 0; después se espeja)

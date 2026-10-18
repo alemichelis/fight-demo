@@ -1,12 +1,13 @@
 // Sonidos sintetizados con WebAudio (sin archivos): confirmaciones, golpes, alertas y fanfarrias.
 // Son provisorios hasta tener audio grabado; la interfaz (sonar("nombre")) queda igual.
 
-let ac = null, master = null;
+let ac = null, master = null, volumen = 0.7;
 function iniciar() {
   if (ac) return ac;
-  try { ac = new AudioContext(); master = ac.createGain(); master.gain.value = 0.35; master.connect(ac.destination); } catch { ac = null; }
+  try { ac = new AudioContext(); master = ac.createGain(); master.gain.value = volumen * 0.5; master.connect(ac.destination); } catch { ac = null; }
   return ac;
 }
+export function fijarVolumen(v) { volumen = v; if (master) master.gain.value = v * 0.5; }
 addEventListener("pointerdown", () => { iniciar(); if (ac?.state === "suspended") ac.resume(); }, { once: false });
 
 function tono(f, dur, { tipo = "sine", vol = 0.3, ataque = 0.005, desliz = 0, cuando = 0 } = {}) {

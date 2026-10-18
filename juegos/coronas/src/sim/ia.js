@@ -2,7 +2,7 @@
 // Plan: economía (peones a oro y madera) → granjas a tiempo → cuartel, torre y herrería → ejército → oleadas.
 // La dificultad cambia el ritmo de juntar recursos, el tamaño de las oleadas y cuándo ataca por primera vez.
 
-import { UNIDADES, EDIFICIOS, POB_MAX, DIFICULTADES } from "../datos.js";
+import { UNIDADES, EDIFICIOS, POB_MAX, DIFICULTADES, INVESTIGACIONES } from "../datos.js";
 
 export class IA {
   constructor(mundo, jug, dificultad = "normal") {
@@ -49,14 +49,28 @@ export class IA {
     const t = m.tiempo;
     if (cuenta("cuartel") === 0 && peones.length >= 7) this.construir("cuartel", peones, J);
     else if (cuenta("cuartel") === 1 && (t > 360 / this.d.ritmo || J.oro > 650) && !enObra("cuartel")) this.construir("cuartel", peones, J);
-    if (cuenta("cuartel") && cuenta("torre") < 1 + (t > 600 ? 1 : 0) && !enObra("torre") && t > 150) this.construir("torre", peones, J);
-    if (cuenta("cuartel") && !cuenta("herreria") && t > 300 / this.d.ritmo) this.construir("herreria", peones, J);
+    const nivel = m.nivelDe(this.j);
+    if (nivel >= 2 && cuenta("cuartel") && cuenta("torre") < 1 + (t > 600 ? 1 : 0) && !enObra("torre")) this.construir("torre", peones, J);
+    if (nivel >= 2 && cuenta("cuartel") && !cuenta("herreria")) this.construir("herreria", peones, J);
+
+    // ---- subir de nivel: Fortaleza con el primer cuartel en pie, Ciudadela con la herrería
+    const herreriaLista = edificios.some(e => e.tipo === "herreria" && e.completo);
+    if (castillo && !castillo.cola.includes("nivel")) {
+      if (castillo.nivel === 1 && cuenta("cuartel") && t > 200 / this.d.ritmo) m.ordenar(this.j, { tipo: "mejorar", id: castillo.id });
+      else if (castillo.nivel === 2 && herreriaLista && t > 420 / this.d.ritmo) m.ordenar(this.j, { tipo: "mejorar", id: castillo.id });
+    }
+    // ---- investigaciones: una por vez, primero armadura (es la que más rinde)
+    for (const h of edificios.filter(e => e.tipo === "herreria" && e.completo && e.cola.length === 0)) {
+      const k = ["armadura1", "armas1", "flechas1", "armadura2", "armas2", "flechas2"]
+        .find(k => !J.investigado.has(k) && !J.enCurso.has(k) && !m.bloqueo(this.j, INVESTIGACIONES[k]));
+      if (k) m.ordenar(this.j, { tipo: "investigar", id: h.id, inv: k });
+    }
 
     // ---- ejército
     const herreria = edificios.some(e => e.tipo === "herreria" && e.completo);
     for (const c of edificios.filter(e => e.tipo === "cuartel" && e.completo && e.cola.length < 2)) {
       const r = m.azar.sig();
-      const tipo = herreria && r < 0.22 ? "caballero" : r < 0.6 ? "soldado" : "arquero";
+      const tipo = nivel >= 3 && r < 0.12 ? "catapulta" : herreria && nivel >= 2 && r < 0.3 ? "caballero" : r < 0.62 ? "soldado" : "arquero";
       m.ordenar(this.j, { tipo: "entrenar", id: c.id, unidad: tipo });
     }
 
@@ -100,7 +114,7 @@ export class IA {
     const cx = ejercito.reduce((s, u) => s + u.x, 0) / ejercito.length, cz = ejercito.reduce((s, u) => s + u.z, 0) / ejercito.length;
     let mejor = null, md = Infinity;
     for (const e of this.m.ents.values()) {
-      if (e.clase !== "edificio" || !this.m.enemigos(this.j, e.dueño)) continue;
+      if (e.clase !== "edificio" || !this.m.enemigos(this.j, e.dueño) || EDIFICIOS[e.tipo].muro) continue;
       const d = Math.hypot(e.x - cx, e.z - cz) - (e.tipo === "torre" ? -6 : 0);   // las torres, al final
       if (d < md) { md = d; mejor = e; }
     }

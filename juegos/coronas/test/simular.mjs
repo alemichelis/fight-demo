@@ -24,7 +24,7 @@ for (let i = 0; i < pasos && m.ganador < 0; i++) {
     const fila = m.jugadores.map(J => {
       const u = m.unidadesDe(J.id), e = m.edificiosDe(J.id);
       const quietos = u.filter(x => !x.orden).length;
-      return `${J.nombre}: oro ${J.oro} mad ${J.madera} pob ${J.pob}/${J.pobMax} uds ${u.length} (quietas ${quietos}) edif ${e.map(x => x.tipo[0] + (x.completo ? "" : "*")).join("")}`;
+      return `${J.nombre}: niv ${m.nivelDe(J.id)} inv ${J.investigado.size} oro ${J.oro} mad ${J.madera} pob ${J.pob}/${J.pobMax} uds ${u.length} (quietas ${quietos}) edif ${e.map(x => x.tipo[0] + (x.completo ? "" : "*")).join("")}`;
     });
     console.log(`min ${String(Math.round(m.tiempo / 60)).padStart(2)} | ${fila.join(" | ")}`);
   }

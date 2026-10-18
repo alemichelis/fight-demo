@@ -40,51 +40,89 @@ export const UNIDADES = {
     costo: { oro: 200, madera: 60 }, pob: 2, tiempo: 26,
     vida: 300, armadura: 4, velocidad: 3.4, radio: 0.5, vision: 8, altura: 1.6,
     ataque: { danio: 18, rango: 0.6, cadencia: 1.2 },
-    requiere: "herreria",
+    requiere: "herreria", nivel: 2,
     modelo: { glb: null, escala: 1 }
   }
+};
+
+UNIDADES.catapulta = {
+  nombre: "Catapulta", desc: "Arma de asedio: lanza rocas desde lejos. Devastadora contra edificios, torpe contra tropas.",
+  costo: { oro: 220, madera: 180 }, pob: 3, tiempo: 32,
+  vida: 240, armadura: 2, velocidad: 1.45, radio: 0.62, vision: 9, altura: 1.4,
+  ataque: { danio: 26, rango: 9, cadencia: 3.6, proyectil: "roca", vsEdificios: 2.6 },
+  nivel: 3,
+  modelo: { glb: null, escala: 1 }
+};
+
+// Niveles del reino: se sube desde el castillo y cada nivel destraba edificios, tropas e investigaciones.
+export const NIVELES = [
+  null,
+  { nombre: "Aldea" },
+  { nombre: "Fortaleza", costo: { oro: 350, madera: 250 }, tiempo: 45, vidaExtra: 600, pobExtra: 4 },
+  { nombre: "Ciudadela", costo: { oro: 600, madera: 400 }, tiempo: 60, vidaExtra: 1200, pobExtra: 8, requiere: "herreria" }
+];
+
+// Investigaciones de la herrería: mejoras permanentes para todo el ejército.
+export const INVESTIGACIONES = {
+  armas1:    { nombre: "Filo de acero", desc: "+2 de daño para soldados y caballeros.", costo: { oro: 150, madera: 75 }, tiempo: 30, nivel: 2, efecto: { cuerpo: 2 }, icono: "espada", grado: "I" },
+  flechas1:  { nombre: "Puntas de hierro", desc: "+2 de daño para arqueras y torres.", costo: { oro: 125, madera: 100 }, tiempo: 30, nivel: 2, efecto: { distancia: 2 }, icono: "flecha", grado: "I" },
+  armadura1: { nombre: "Cota de malla", desc: "+1 de armadura para todas las tropas.", costo: { oro: 150, madera: 100 }, tiempo: 35, nivel: 2, efecto: { armadura: 1 }, icono: "escudo", grado: "I" },
+  armas2:    { nombre: "Acero templado", desc: "+3 de daño para soldados y caballeros.", costo: { oro: 275, madera: 150 }, tiempo: 45, nivel: 3, requiere: "armas1", efecto: { cuerpo: 3 }, icono: "espada", grado: "II" },
+  flechas2:  { nombre: "Puntas templadas", desc: "+3 de daño para arqueras y torres.", costo: { oro: 250, madera: 200 }, tiempo: 45, nivel: 3, requiere: "flechas1", efecto: { distancia: 3 }, icono: "flecha", grado: "II" },
+  armadura2: { nombre: "Armadura de placas", desc: "+2 de armadura para todas las tropas.", costo: { oro: 275, madera: 200 }, tiempo: 50, nivel: 3, requiere: "armadura1", efecto: { armadura: 2 }, icono: "escudo", grado: "II" }
 };
 
 export const EDIFICIOS = {
   castillo: {
     nombre: "Castillo", desc: "Corazón del reino: entrena peones y recibe el oro y la madera.",
-    costo: { oro: 450, madera: 250 }, tiempo: 70, lado: 4,
-    vida: 1600, armadura: 4, vision: 12, pobDa: 10, entrega: true, entrena: ["peon"],
+    costo: { oro: 450, madera: 250 }, tiempo: 55, lado: 4,
+    vida: 1600, armadura: 4, vision: 13, pobDa: 10, entrega: true, entrena: ["peon"], mejora: true,
     modelo: { glb: null, escala: 1 }
   },
   granja: {
     nombre: "Granja", desc: "Alimenta a tu gente: cada granja suma 6 de población.",
-    costo: { oro: 80, madera: 30 }, tiempo: 18, lado: 2,
+    costo: { oro: 80, madera: 30 }, tiempo: 14, lado: 2,
     vida: 320, armadura: 1, vision: 4, pobDa: 6,
     modelo: { glb: null, escala: 1 }
   },
   cuartel: {
     nombre: "Cuartel", desc: "Entrena soldados, arqueras y, con herrería, caballeros.",
-    costo: { oro: 170, madera: 90 }, tiempo: 34, lado: 3,
-    vida: 800, armadura: 3, vision: 6, entrena: ["soldado", "arquero", "caballero"],
+    costo: { oro: 170, madera: 90 }, tiempo: 26, lado: 3,
+    vida: 800, armadura: 3, vision: 6, entrena: ["soldado", "arquero", "caballero", "catapulta"],
     modelo: { glb: null, escala: 1 }
   },
   herreria: {
-    nombre: "Herrería", desc: "Forja armaduras pesadas: habilita a los caballeros.",
-    costo: { oro: 140, madera: 120 }, tiempo: 30, lado: 3,
-    vida: 650, armadura: 3, vision: 5,
+    nombre: "Herrería", desc: "Investiga mejoras de armas y armaduras, y habilita a los caballeros.",
+    costo: { oro: 140, madera: 120 }, tiempo: 24, lado: 3, nivel: 2,
+    vida: 650, armadura: 3, vision: 5, investiga: true,
     modelo: { glb: null, escala: 1 }
   },
   torre: {
     nombre: "Torre de guardia", desc: "Defensa fija: dispara flechas a los enemigos que se acercan.",
-    costo: { oro: 110, madera: 100 }, tiempo: 30, lado: 2,
+    costo: { oro: 110, madera: 100 }, tiempo: 24, lado: 2, nivel: 2,
     vida: 520, armadura: 3, vision: 10,
     ataque: { danio: 11, rango: 7.5, cadencia: 1.3, proyectil: "flecha" },
     modelo: { glb: null, escala: 1 }
   }
 };
+EDIFICIOS.barricada = {
+  nombre: "Barricada", desc: "Empalizada de madera que corta el paso. Arrastrá para levantar una línea entera.",
+  costo: { oro: 0, madera: 12 }, tiempo: 4, lado: 1, muro: true,
+  vida: 240, armadura: 4, vision: 2,
+  modelo: { glb: null, escala: 1 }
+};
+EDIFICIOS.muralla = {
+  nombre: "Muralla de piedra", desc: "Muro de piedra, mucho más duro que la barricada. Arrastrá para levantar una línea.",
+  costo: { oro: 18, madera: 4 }, tiempo: 7, lado: 1, muro: true, nivel: 2,
+  vida: 700, armadura: 8, vision: 2,
+  modelo: { glb: null, escala: 1 }
+};
+
 // los peones pueden levantar todos los edificios
 UNIDADES.peon.construye = Object.keys(EDIFICIOS);
 
 export const MINA = { nombre: "Mina de oro", lado: 3, oro: 9000, vision: 0, modelo: { glb: null, escala: 1 } };
 
-// Grilla de comandos: 4 columnas × 3 filas con teclas fijas por posición (como los RTS modernos).
-export const TECLAS_GRILLA = ["q", "w", "e", "r", "a", "s", "d", "f", "z", "x", "c", "v"];
 
 export const DIFICULTADES = {
   facil:   { nombre: "Fácil",   ritmo: 0.75, ejercito: 9,  primerAtaque: 330, peones: 9 },

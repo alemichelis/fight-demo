@@ -4,7 +4,7 @@
 //
 // Lo que el dibujo y la interfaz necesitan saber sale por this.eventos (se vacía cada cuadro) y leyendo el estado.
 
-import { UNIDADES, EDIFICIOS, MINA, TICK, POB_MAX, LADO_MAPA, RECURSOS_INICIALES, COLORES_JUGADOR } from "../datos.js";
+import { UNIDADES, EDIFICIOS, MINA, TICK, POB_MAX, LADO_MAPA, RECURSOS_INICIALES, COLORES_JUGADOR, NIVELES, INVESTIGACIONES } from "../datos.js";
 import { generarMapa, LIBRE, ARBOL } from "./mapa.js";
 import { crearBuscador } from "./caminos.js";
 import { crearAzar } from "./azar.js";
@@ -31,7 +31,8 @@ export class Mundo {
       id: i, nombre: j.nombre, color: COLORES_JUGADOR[i], ia: !!j.ia,
       oro: RECURSOS_INICIALES.oro, madera: RECURSOS_INICIALES.madera, pob: 0, pobMax: 0,
       vis: new Uint8Array(N * N), derrotado: false, alertaT: -99,
-      stats: { entrenadas: 0, perdidas: 0, bajas: 0, edificios: 0, oro: 0, madera: 0 }
+      stats: { entrenadas: 0, perdidas: 0, bajas: 0, edificios: 0, oro: 0, madera: 0 },
+      mejoras: { cuerpo: 0, distancia: 0, armadura: 0 }, investigado: new Set(), enCurso: new Set()
     }));
 
     for (const m of this.mapa.minas) this.crearMina(m.x, m.z);
@@ -94,7 +95,7 @@ export class Mundo {
     const e = {
       id: this.sigId++, clase: "edificio", tipo, dueño, tx, tz, lado, x: tx + lado / 2, z: tz + lado / 2, px: tx + lado / 2, pz: tz + lado / 2,
       vida: completo ? d.vida : Math.max(1, d.vida * 0.1), vidaMax: d.vida, progreso: completo ? 1 : 0, completo,
-      cola: [], colaT: 0, reunion: null, cd: 0, ultimoDanio: -99, ang: 0
+      cola: [], colaT: 0, reunion: null, cd: 0, ultimoDanio: -99, ang: 0, nivel: tipo === "castillo" ? 1 : 0, rot: 0
     };
     this.marcar(e, e.id);
     this.ents.set(e.id, e);
@@ -170,20 +171,22 @@ export class Mundo {
         const peones = propias.filter(u => UNIDADES[u.tipo].construye);
         const d = EDIFICIOS[o.edificio];
         if (!peones.length || !d) return { ok: false };
+        const traba = this.bloqueo(jug, d); if (traba) return { ok: false, msg: traba };
         const motivo = this.motivoNoConstruir(jug, o.edificio, o.tx, o.tz);
         if (motivo) return { ok: false, msg: motivo };
         const falta = this.faltaPara(J, d.costo);
         if (falta) return { ok: false, msg: falta };
         J.oro -= d.costo.oro; J.madera -= d.costo.madera;
         const obra = this.crearEdificio(o.edificio, jug, o.tx, o.tz, false);
+        obra.rot = ((o.rot | 0) % 4 + 4) % 4;
         this.eventos.push({ tipo: "obra", id: obra.id, dueño: jug });
-        for (const u of peones) this.asignar(u, { tipo: "construir", objetivo: obra.id });
+        for (const u of peones) this.mandarAConstruir(u, obra.id, o.encolar);
         return { ok: true, id: obra.id };
       }
       case "ayudar": {                       // peones a terminar una obra propia
         const t = this.ents.get(o.objetivo);
         if (!t || t.dueño !== jug || t.clase !== "edificio" || t.completo) return { ok: false };
-        for (const u of propias.filter(u => UNIDADES[u.tipo].construye)) this.asignar(u, { tipo: "construir", objetivo: t.id });
+        for (const u of propias.filter(u => UNIDADES[u.tipo].construye)) this.mandarAConstruir(u, t.id, o.encolar);
         return { ok: true };
       }
       case "entrenar": {
@@ -191,13 +194,39 @@ export class Mundo {
         if (!e || e.dueño !== jug || e.clase !== "edificio" || !d) return { ok: false };
         if (!e.completo) return { ok: false, msg: "El edificio todavía está en obra." };
         if (!EDIFICIOS[e.tipo].entrena?.includes(o.unidad)) return { ok: false };
-        if (d.requiere && !this.edificiosDe(jug).some(b => b.tipo === d.requiere && b.completo)) return { ok: false, msg: `Necesitás una ${EDIFICIOS[d.requiere].nombre.toLowerCase()} terminada.` };
+        const traba = this.bloqueo(jug, d); if (traba) return { ok: false, msg: traba };
         if (e.cola.length >= 5) return { ok: false, msg: "La cola está llena (máximo 5)." };
         const falta = this.faltaPara(J, d.costo); if (falta) return { ok: false, msg: falta };
         if (J.pob + d.pob > J.pobMax) return { ok: false, msg: J.pobMax >= POB_MAX ? "Llegaste al límite de población." : "Falta comida: construí más granjas." };
         J.oro -= d.costo.oro; J.madera -= d.costo.madera;
         e.cola.push(o.unidad);
         this.actualizarPoblacion();
+        return { ok: true };
+      }
+      case "investigar": {
+        const e = this.ents.get(o.id), d = INVESTIGACIONES[o.inv];
+        if (!e || e.dueño !== jug || e.clase !== "edificio" || !d || !EDIFICIOS[e.tipo].investiga) return { ok: false };
+        if (!e.completo) return { ok: false, msg: "El edificio todavía está en obra." };
+        if (J.investigado.has(o.inv) || J.enCurso.has(o.inv)) return { ok: false, msg: "Esa investigación ya está hecha o en curso." };
+        const traba = this.bloqueo(jug, d); if (traba) return { ok: false, msg: traba };
+        if (e.cola.length >= 5) return { ok: false, msg: "La cola está llena (máximo 5)." };
+        const falta = this.faltaPara(J, d.costo); if (falta) return { ok: false, msg: falta };
+        J.oro -= d.costo.oro; J.madera -= d.costo.madera;
+        J.enCurso.add(o.inv); e.cola.push("inv:" + o.inv);
+        return { ok: true };
+      }
+      case "mejorar": {                      // el castillo sube un nivel
+        const e = this.ents.get(o.id);
+        if (!e || e.dueño !== jug || e.tipo !== "castillo") return { ok: false };
+        if (!e.completo) return { ok: false, msg: "El castillo todavía está en obra." };
+        const sig = NIVELES[e.nivel + 1];
+        if (!sig) return { ok: false, msg: "Tu reino ya está en el nivel más alto." };
+        if (e.cola.includes("nivel")) return { ok: false, msg: "La mejora ya está en marcha." };
+        if (sig.requiere && !this.edificiosDe(jug).some(b => b.tipo === sig.requiere && b.completo)) return { ok: false, msg: `Para ser ${sig.nombre} necesitás una ${EDIFICIOS[sig.requiere].nombre.toLowerCase()} terminada.` };
+        if (e.cola.length >= 5) return { ok: false, msg: "La cola está llena (máximo 5)." };
+        const falta = this.faltaPara(J, sig.costo); if (falta) return { ok: false, msg: falta };
+        J.oro -= sig.costo.oro; J.madera -= sig.costo.madera;
+        e.cola.push("nivel");
         return { ok: true };
       }
       case "cancelar": {                     // último de la cola, o la obra entera
@@ -211,10 +240,15 @@ export class Mundo {
         }
         const i = o.indice ?? e.cola.length - 1;
         if (i < 0 || i >= e.cola.length) return { ok: false };
-        const d = UNIDADES[e.cola[i]];
-        J.oro += d.costo.oro; J.madera += d.costo.madera;
+        const it = this.itemCola(e, e.cola[i]);
+        J.oro += it.costo.oro; J.madera += it.costo.madera;
+        if (it.inv) J.enCurso.delete(it.inv);
         e.cola.splice(i, 1); if (i === 0) e.colaT = 0;
         this.actualizarPoblacion();
+        return { ok: true };
+      }
+      case "girar": {                        // girar un edificio propio un cuarto de vuelta (sólo cambia cómo se ve)
+        for (const id of o.ids || []) { const e = this.ents.get(id); if (e && e.dueño === jug && e.clase === "edificio") e.rot = ((e.rot || 0) + (o.sentido || 1) + 4) % 4; }
         return { ok: true };
       }
       case "detener": for (const u of propias) this.asignar(u, null); return { ok: true };
@@ -230,8 +264,36 @@ export class Mundo {
     return { ok: false };
   }
 
+  // Con «encolar» (Shift) la obra se suma a las que ya tiene el peón; si no, va ya. En los dos casos se recuerda qué
+  // hacía antes (juntar oro o madera) para volver a eso cuando no queden obras.
+  mandarAConstruir(u, obraId, encolar) {
+    const o = u.pendiente !== undefined ? u.pendiente : u.orden;
+    if (encolar && o?.tipo === "construir") { (u.colaObras ||= []).push(obraId); return; }
+    const luego = o?.tipo === "recolectar" ? { ...o, fase: u.carga ? "volver" : "ir" } : o?.tipo === "construir" ? o.luego : null;
+    if (!encolar) u.colaObras = [];
+    this.asignar(u, { tipo: "construir", objetivo: obraId, luego });
+  }
+
+  // cuántos peones están construyendo esta obra
+  constructores(id) {
+    let n = 0;
+    for (const u of this.ents.values()) if (u.clase === "unidad" && u.orden?.tipo === "construir" && u.orden.objetivo === id) n++;
+    return n;
+  }
+
+  // la obra propia sin terminar más cercana (opcionalmente sólo las que nadie está construyendo)
+  obraCercana(u, radio, soloSinPeon) {
+    let mejor = null, md = radio;
+    for (const e of this.ents.values()) {
+      if (e.clase !== "edificio" || e.dueño !== u.dueño || e.completo) continue;
+      const d = this.distancia(u, e);
+      if (d < md && (!soloSinPeon || this.constructores(e.id) === 0)) { md = d; mejor = e; }
+    }
+    return mejor;
+  }
+
   asignar(u, orden) {
-    if (u.oculto) return;                    // adentro de la mina: termina la vuelta y después obedece
+    if (u.oculto) { u.pendiente = orden; return; }   // adentro de la mina: obedece apenas sale
     u.orden = orden; u.camino = null; u.destClave = ""; u.atascos = 0; u.fallos = 0;
   }
 
@@ -239,6 +301,35 @@ export class Mundo {
     if (J.oro < costo.oro) return "No alcanza el oro.";
     if (J.madera < costo.madera) return "No alcanza la madera.";
     return null;
+  }
+
+  // nivel del reino: el del mejor castillo terminado (sin castillo, aldea)
+  nivelDe(jug) {
+    let n = 1;
+    for (const e of this.ents.values()) if (e.dueño === jug && e.tipo === "castillo" && e.completo) n = Math.max(n, e.nivel);
+    return n;
+  }
+
+  // ¿qué le falta al jugador para poder usar esto? (nivel del reino, edificio o investigación previa); null si nada
+  bloqueo(jug, d) {
+    if (d.nivel && this.nivelDe(jug) < d.nivel) return `Requiere ${NIVELES[d.nivel].nombre} (nivel ${d.nivel}): mejorá el castillo.`;
+    if (d.requiere && EDIFICIOS[d.requiere] && !this.edificiosDe(jug).some(b => b.tipo === d.requiere && b.completo)) return `Requiere una ${EDIFICIOS[d.requiere].nombre.toLowerCase()} terminada.`;
+    if (d.requiere && INVESTIGACIONES[d.requiere] && !this.jugadores[jug].investigado.has(d.requiere)) return `Antes investigá «${INVESTIGACIONES[d.requiere].nombre}».`;
+    return null;
+  }
+
+  // lo que hay en una cola: tropa, investigación («inv:clave») o mejora de nivel («nivel»)
+  itemCola(e, item) {
+    if (item === "nivel") { const n = NIVELES[e.nivel + 1]; return { tiempo: n.tiempo, costo: n.costo, pob: 0, nivel: true }; }
+    if (item.startsWith("inv:")) { const k = item.slice(4), d = INVESTIGACIONES[k]; return { tiempo: d.tiempo, costo: d.costo, pob: 0, inv: k }; }
+    const d = UNIDADES[item]; return { tiempo: d.tiempo, costo: d.costo, pob: d.pob, unidad: item };
+  }
+
+  // daño de un golpe o proyectil, con las mejoras investigadas y el bono de asedio contra edificios
+  danioDe(atacante, t, atk) {
+    const J = this.jugadores[atacante.dueño];
+    const bono = !J ? 0 : atk.proyectil === "flecha" ? J.mejoras.distancia : atk.proyectil ? 0 : J.mejoras.cuerpo;
+    return (atk.danio + bono) * (t.clase === "edificio" && atk.vsEdificios ? atk.vsEdificios : 1);
   }
 
   motivoNoConstruir(jug, tipo, tx, tz) {
@@ -298,7 +389,9 @@ export class Mundo {
     if (mejor) return mejor;
     for (const e of this.ents.values()) {
       if (e.clase !== "edificio" || !this.enemigos(u.dueño, e.dueño)) continue;
-      const d = this.distancia(u, e); if (d < md) { md = d; mejor = e; }
+      const d = this.distancia(u, e);
+      if (EDIFICIOS[e.tipo].muro && d > 1.2) continue;   // los muros sólo se atacan si están pegados
+      if (d < md) { md = d; mejor = e; }
     }
     return mejor;
   }
@@ -407,6 +500,11 @@ export class Mundo {
     const o = u.orden;
     const escanea = (this.tick + u.id) % 8 === 0;
 
+    // peón sin nada que hacer: si hay una obra abandonada cerca, va a terminarla
+    if (!o && d.construye && (this.tick + u.id) % 30 === 0) {
+      const obra = this.obraCercana(u, 8, true);
+      if (obra) { this.mandarAConstruir(u, obra.id, false); return; }
+    }
     if (!o || o.tipo === "mantener") {
       if (escanea && !d.recolecta) {
         const t = this.buscarEnemigo(u, o ? d.ataque.rango + 0.3 : d.vision);
@@ -445,7 +543,7 @@ export class Mundo {
       if (u.cd <= 0) {
         u.cd = d.ataque.cadencia; u.golpeT = this.tiempo; u.anim = "ataca";
         if (d.ataque.proyectil) this.disparar(u, t, d.ataque);
-        else this.daniar(t, d.ataque.danio, u);
+        else this.daniar(t, this.danioDe(u, t, d.ataque), u);
       }
       return;
     }
@@ -461,7 +559,7 @@ export class Mundo {
   disparar(u, t, atk) {
     const dist = Math.hypot(t.x - u.x, t.z - u.z);
     this.proyectiles.push({ id: this.sigId++, tipo: atk.proyectil, ox: u.x, oz: u.z, oy: u.clase === "edificio" ? 4.2 : 0.8,
-      x: t.x, z: t.z, objetivo: t.id, danio: atk.danio, atacante: u.id, dueño: u.dueño, t: 0, dur: 0.18 + dist * 0.055 });
+      x: t.x, z: t.z, objetivo: t.id, danio: this.danioDe(u, t, atk), atacante: u.id, dueño: u.dueño, t: 0, dur: 0.18 + dist * 0.055 });
   }
 
   actualizarProyectiles() {
@@ -478,7 +576,8 @@ export class Mundo {
 
   daniar(t, danio, atacante) {
     const def = t.clase === "unidad" ? UNIDADES[t.tipo] : EDIFICIOS[t.tipo];
-    const final = Math.max(1, (danio - (def?.armadura || 0)) * this.azar.rango(0.85, 1.15));
+    const armadura = (def?.armadura || 0) + (t.clase === "unidad" ? this.jugadores[t.dueño]?.mejoras.armadura || 0 : 0);
+    const final = Math.max(1, (danio - armadura) * this.azar.rango(0.85, 1.15));
     t.vida -= final; t.ultimoDanio = this.tiempo;
     this.eventos.push({ tipo: "golpe", id: t.id, x: t.x, z: t.z, danio: final });
     const J = this.jugadores[t.dueño];
@@ -566,6 +665,14 @@ export class Mundo {
       const cant = m ? Math.min(R.carga, m.oro) : 0;
       u.carga = { tipo: "oro", cant };
       u.oculto = false;
+      if (u.pendiente !== undefined) {           // le dieron otra orden mientras estaba adentro
+        const p = u.pendiente; u.pendiente = undefined;
+        const sal = this.casillasLibresCerca(m ? m.x : u.x, m ? m.z + m.lado : u.z, 1, 6)[0];
+        if (sal) { u.x = sal.x + 0.5; u.z = sal.z + 0.5; u.px = u.x; u.pz = u.z; }
+        if (m) { m.oro -= cant; if (m.oro <= 0) { this.eventos.push({ tipo: "minaAgotada", x: m.x, z: m.z }); this.quitar(m, null); } }
+        this.asignar(u, p);
+        return;
+      }
       if (m) {
         m.oro -= cant;
         const dep = this.depositoCercano(u);
@@ -609,7 +716,7 @@ export class Mundo {
 
   construir(u, o) {
     const e = this.ents.get(o.objetivo);
-    if (!e || e.completo) { this.asignar(u, null); return; }
+    if (!e || e.completo) { this.siguienteTrabajo(u, null); return; }
     const r = this.acercarse(u, e, 0.6);
     if (r === "fallo") { this.asignar(u, null); return; }
     if (r !== "ya") return;
@@ -623,9 +730,23 @@ export class Mundo {
       this.eventos.push({ tipo: "construido", id: e.id, dueño: e.dueño, entTipo: e.tipo });
       this.actualizarPoblacion();
       // si terminó un castillo nuevo cerca de una mina, el peón se pone a minar solo
-      const m = e.tipo === "castillo" ? this.minaCercana(e.x, e.z, 12) : null;
-      this.asignar(u, m ? { tipo: "recolectar", recurso: "oro", mina: m.id, fase: "ir" } : null);
+      this.siguienteTrabajo(u, e);
     }
+  }
+
+  // Qué hace un peón al terminar una obra: la próxima de su cola, si no otra obra cercana sin peón, si no lo que
+  // hacía antes (juntar), y si la obra era un castillo nuevo junto a una mina, ponerse a minar ahí.
+  siguienteTrabajo(u, terminada) {
+    const o = u.orden, luego = o?.luego || null;
+    while (u.colaObras?.length) {
+      const id = u.colaObras.shift(), e = this.ents.get(id);
+      if (e && !e.completo) { this.asignar(u, { tipo: "construir", objetivo: id, luego }); return; }
+    }
+    const otra = this.obraCercana(u, 10, true);
+    if (otra) { this.asignar(u, { tipo: "construir", objetivo: otra.id, luego }); return; }
+    const m = terminada?.tipo === "castillo" ? this.minaCercana(terminada.x, terminada.z, 12) : null;
+    if (m) { this.asignar(u, { tipo: "recolectar", recurso: "oro", mina: m.id, fase: "ir" }); return; }
+    this.asignar(u, luego);
   }
 
   /* ---------------------------------------------------------------- edificios */
@@ -633,7 +754,25 @@ export class Mundo {
   actualizarEdificio(e) {
     if (!e.completo) return;
     const d = EDIFICIOS[e.tipo];
-    if (e.cola.length) {
+    if (e.cola.length && (e.cola[0] === "nivel" || e.cola[0].startsWith("inv:"))) {
+      e.colaT += TICK;
+      const it = this.itemCola(e, e.cola[0]);
+      if (e.colaT >= it.tiempo) {
+        e.cola.shift(); e.colaT = 0;
+        const J = this.jugadores[e.dueño];
+        if (it.nivel) {
+          const n = NIVELES[++e.nivel];
+          e.vidaMax += n.vidaExtra; e.vida += n.vidaExtra;
+          this.eventos.push({ tipo: "nivel", id: e.id, dueño: e.dueño, nivel: e.nivel });
+          this.actualizarPoblacion();
+        } else {
+          const d = INVESTIGACIONES[it.inv];
+          J.enCurso.delete(it.inv); J.investigado.add(it.inv);
+          for (const k in d.efecto) J.mejoras[k] += d.efecto[k];
+          this.eventos.push({ tipo: "investigado", dueño: e.dueño, inv: it.inv });
+        }
+      }
+    } else if (e.cola.length) {
       e.colaT += TICK;
       if (e.colaT >= UNIDADES[e.cola[0]].tiempo) {
         const tipo = e.cola.shift(); e.colaT = 0;
@@ -670,8 +809,8 @@ export class Mundo {
       const J = this.jugadores[e.dueño]; if (!J) continue;
       if (e.clase === "unidad") J.pob += UNIDADES[e.tipo].pob;
       else if (e.clase === "edificio") {
-        if (e.completo) J.pobMax += EDIFICIOS[e.tipo].pobDa || 0;
-        for (const t of e.cola) J.pob += UNIDADES[t].pob;
+        if (e.completo) J.pobMax += (EDIFICIOS[e.tipo].pobDa || 0) + (e.nivel > 1 ? NIVELES[e.nivel].pobExtra : 0);
+        for (const t of e.cola) J.pob += UNIDADES[t]?.pob || 0;
       }
     }
     for (const J of this.jugadores) J.pobMax = Math.min(POB_MAX, J.pobMax);
@@ -699,7 +838,7 @@ export class Mundo {
     for (const e of this.ents.values()) if (e.dueño >= 0) vivos.add(e.dueño);
     for (const J of this.jugadores) {
       // derrota: sin edificios y sin peones (con soldados sueltos no alcanza para seguir)
-      const tieneBase = [...this.ents.values()].some(e => e.dueño === J.id && (e.clase === "edificio" || UNIDADES[e.tipo]?.recolecta));
+      const tieneBase = [...this.ents.values()].some(e => e.dueño === J.id && (e.clase === "edificio" && !EDIFICIOS[e.tipo].muro || UNIDADES[e.tipo]?.recolecta));
       if (!J.derrotado && (!vivos.has(J.id) || !tieneBase)) { J.derrotado = true; this.eventos.push({ tipo: "derrota", dueño: J.id }); }
     }
     const quedan = this.jugadores.filter(J => !J.derrotado);

@@ -3,19 +3,21 @@
 // traduce gestos en órdenes. Este archivo los conecta y maneja los menús.
 
 import * as THREE from "three";
-import { TICK, UNIDADES, EDIFICIOS, DIFICULTADES } from "./datos.js";
+import { TICK, UNIDADES, EDIFICIOS, DIFICULTADES, NIVELES, INVESTIGACIONES } from "./datos.js";
 import { Mundo } from "./sim/mundo.js";
 import { IA } from "./sim/ia.js";
-import { crearEscena, CALIDADES } from "./render/escena.js";
+import { crearEscena } from "./render/escena.js";
+import { config, PRESETS, nombreTecla } from "./config.js";
+import { Configuracion } from "./ui/configuracion.js";
 import { crearTexturas } from "./render/texturas.js";
-import { prepararMateriales } from "./render/modelos.js";
+import { prepararMateriales, precargar } from "./render/modelos.js";
 import { crearTerreno } from "./render/terreno.js";
 import { Niebla, U } from "./render/parches.js";
 import { Vista } from "./render/vista.js";
 import { crearRetratos } from "./render/retratos.js";
-import { HUD } from "./ui/hud.js";
+import { HUD, destrabesDe } from "./ui/hud.js";
 import { Controles } from "./ui/controles.js";
-import { sonar } from "./ui/sonido.js";
+import { sonar, fijarVolumen } from "./ui/sonido.js";
 
 const JUGADOR = 0;
 const $ = s => document.querySelector(s);
@@ -31,11 +33,10 @@ function placaDeVideo() {
     return ext ? String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)) : "";
   } catch { return ""; }
 }
+// calidad con la que arranca alguien que nunca abrió la configuración
 function calidadInicial() {
-  const url = new URLSearchParams(location.search).get("calidad");
-  if (CALIDADES[url]) return url;
-  const q = guardado("calidad", "");
-  if (CALIDADES[q]) return q;
+  const q = guardado("calidad", "");                 // de versiones anteriores
+  if (PRESETS[q]) return q;
   if (/SwiftShader|llvmpipe|Software|Basic Render/i.test(placaDeVideo())) return "baja";
   const movil = /Mobi|Android/i.test(navigator.userAgent);
   return movil ? "baja" : (navigator.hardwareConcurrency || 4) >= 8 ? "alta" : "media";
@@ -43,7 +44,11 @@ function calidadInicial() {
 
 class Juego {
   constructor() {
-    this.calidad = calidadInicial();
+    config.cargar(calidadInicial());
+    // ?calidad=alta|media|baja fuerza un preset para esta visita (útil para probar)
+    const url = new URLSearchParams(location.search).get("calidad");
+    if (PRESETS[url]) { config.usarPreset(url); config.valor.elegidaPorPersona = true; }
+    this.calidad = config.valor.graficos.calidad;
     this.dificultad = guardado("dificultad", "normal");
     this.estado = "cargando";            // cargando → menu → jugando ⇄ pausa → fin
     this.sel = [];
@@ -56,21 +61,31 @@ class Juego {
   async cargar() {
     const paso = async (txt, f) => { $("#carga .paso").textContent = txt; $("#carga .barra i").style.width = f * 100 + "%"; await espera(); };
     await paso("Forjando texturas…", 0.1);
-    const tx = crearTexturas(this.calidad);
+    const tx = crearTexturas(config.valor.graficos.calidad === "baja" ? "baja" : "alta");
     prepararMateriales(tx);
     await paso("Levantando el mundo…", 0.35);
     const semilla = Number(new URLSearchParams(location.search).get("semilla")) || (Date.now() % 100000);
     this.mundo = new Mundo({ semilla, jugadores: [{ nombre: "Tu reino" }, { nombre: "Reino rival", ia: true }] });
     this.alturaEn = (x, z) => this.mundo.mapa.alturaEn(x, z);
-    this.ctx = crearEscena($("#lienzo"), this.calidad, this.mundo.N);
+    this.ctx = crearEscena($("#lienzo"), config.valor.graficos, this.mundo.N);
     this.niebla = new Niebla(this.mundo.N);
     await paso("Plantando bosques…", 0.55);
     this.terreno = crearTerreno(this.ctx.escena, this.mundo, tx, this.calidad);
     await paso("Pintando estandartes…", 0.75);
     this.retratos = crearRetratos([...Object.keys(UNIDADES), ...Object.keys(EDIFICIOS), "mina"], this.mundo.jugadores[JUGADOR].color, this.ctx.escena.environment);
+    precargar([...Object.keys(EDIFICIOS), "mina"], this.mundo.jugadores.map(J => J.color));
     this.vista = new Vista(this.ctx, this.mundo, this.terreno);
+    this.lentos = [];
     this.hud = new HUD($("#hud"), this.mundo, this.retratos, this);
     this.controles = new Controles(this, $("#lienzo"), $("#cuadro"));
+    this.configuracion = new Configuracion($("#config"));
+    // cada cambio de configuración se aplica en vivo
+    config.alCambiar(v => {
+      this.ctx.aplicarGraficos(v.graficos);
+      this.terreno.densidadPasto(v.graficos.pasto);
+      fijarVolumen(v.audio.volumen);
+      this.calidad = v.graficos.calidad;
+    });
     await paso("Preparando la batalla…", 0.92);
     this.ctx.redimensionar();
     addEventListener("resize", () => this.ctx.redimensionar());
@@ -96,16 +111,19 @@ class Juego {
   // En el menú se miden los cuadros por segundo: si la calidad la eligió el juego (no la persona) y no alcanza
   // para jugar fluido, baja un escalón y recarga. Mejor perder sombras que jugar a los saltos.
   medirRendimiento() {
-    if (guardado("calidad", "") && guardado("calidad-auto", "") !== "1") return;
-    if (new URLSearchParams(location.search).get("calidad")) return;
-    let cuadros = 0; const t0 = performance.now();
+    if (config.valor.elegidaPorPersona) return;
+    let cuadros = 0, t0 = performance.now();
     const contar = () => {
-      if (this.estado !== "menu") return;
+      if (this.estado !== "menu" || config.valor.elegidaPorPersona) return;
       cuadros++;
       const s = (performance.now() - t0) / 1000;
-      if (s < 4) { requestAnimationFrame(contar); return; }
-      const fps = cuadros / s, menor = { alta: "media", media: "baja" }[this.calidad];
-      if (fps < 26 && menor) { guardar("calidad", menor); guardar("calidad-auto", "1"); location.reload(); }
+      if (s < 3) { requestAnimationFrame(contar); return; }
+      const fps = cuadros / s, menor = { alta: "media", media: "baja", personalizada: "media" }[this.calidad];
+      if (fps < 26 && menor) {
+        config.usarPreset(menor); config.aplicar();               // se baja en vivo y se vuelve a medir
+        cuadros = 0; t0 = performance.now();
+        setTimeout(() => requestAnimationFrame(contar), 1000);
+      }
     };
     setTimeout(() => requestAnimationFrame(contar), 1500);     // los primeros cuadros siempre son lentos
   }
@@ -119,7 +137,13 @@ class Juego {
 
   bucle(t) {
     requestAnimationFrame(tt => this.bucle(tt));
-    const dt = Math.min(0.25, (t - this.ultimo) / 1000); this.ultimo = t;
+    const inicio = performance.now(), crudo = t - this.ultimo;
+    // registro de cuadros lentos (más de un cuarto de segundo): __coronas.lentos en la consola dice qué pasó
+    if (crudo > 250 && this.estado === "jugando" && this.lentos.length < 30) {
+      this.lentos.push({ ms: Math.round(crudo), seg: Math.round(this.mundo.tiempo), ultimo: this.ultimoCuadro });
+      console.warn("Cuadro lento", this.lentos[this.lentos.length - 1]);
+    }
+    const dt = Math.min(0.25, crudo / 1000); this.ultimo = t;
     if (this.estado === "jugando") {
       this.acum += dt;
       let pasos = 0;
@@ -144,7 +168,9 @@ class Juego {
     this.niebla.actualizar(this.mundo.jugadores[JUGADOR].vis, dt, this.estado === "menu");
     this.ctx.ubicarCamara(this.alturaEn);
     if (this.estado === "jugando" || this.estado === "pausa") this.hud.actualizar(this.sel);
+    const antesDibujo = performance.now();
     this.ctx.dibujar();
+    this.ultimoCuadro = { logica: Math.round(antesDibujo - inicio), dibujo: Math.round(performance.now() - antesDibujo) };
   }
 
   procesarEventos(evs) {
@@ -156,6 +182,11 @@ class Juego {
           if (mio) { this.hud.aviso("¡Nos están atacando!", "alerta"); sonar("alerta", 4); this.alertasMini.push({ x: ev.x, z: ev.z, t: performance.now() / 1000 }); this.ultimaAlerta = { x: ev.x, z: ev.z }; }
           break;
         case "construido": if (mio) { this.hud.aviso(`${EDIFICIOS[ev.entTipo].nombre} terminado.`); sonar("construido"); } break;
+        case "nivel":
+          if (mio) { this.hud.aviso(`¡Tu reino ahora es ${NIVELES[ev.nivel].nombre}! Se destrabó: ${destrabesDe(ev.nivel).join(", ")}.`, "logro"); sonar("victoria"); }
+          else this.hud.aviso(`El reino rival llegó a ${NIVELES[ev.nivel].nombre}.`);
+          break;
+        case "investigado": if (mio) { this.hud.aviso(`Investigación terminada: ${INVESTIGACIONES[ev.inv].nombre}.`, "logro"); sonar("construido"); } break;
         case "entrenada": if (mio) sonar("entrenado", 0.3); break;
         case "minaAgotada": if (this.mundo.explorado(JUGADOR, ev.x, ev.z)) this.hud.aviso("Se agotó una mina de oro."); break;
         case "arbolCae": this.hud.mini.marcarSucio(); break;
@@ -165,7 +196,7 @@ class Juego {
       }
     }
     const ahora = performance.now() / 1000;
-    this.alertasMini = this.alertasMini.filter(a => ahora - a.t < 6);
+    this.alertasMini = this.alertasMini.filter(a => ahora - a.t < (a.oro ? 14 : 6));
   }
 
   /* ================================================================ acciones (las usan HUD y controles) */
@@ -177,7 +208,41 @@ class Juego {
     return r;
   }
   modo() { return this.modoActual?.tipo || null; }
-  cancelarModo() { this.modoActual = null; this.vista.mostrarFantasma(null); document.body.dataset.modo = ""; }
+  cancelarModo() { this.modoActual = null; this.lineaMuro = null; this.vista.mostrarFantasma(null); this.vista.mostrarLinea([]); document.body.dataset.modo = ""; }
+
+  /* ---------------------------------------------------------------- muros en línea (barricadas y murallas) */
+
+  // casillas de la línea entre dos puntos (recta en el eje dominante o en diagonal), con su validez
+  casillasLinea(x0, z0, x1, z1, tipo) {
+    const a = { x: Math.floor(x0), z: Math.floor(z0) }, b = { x: Math.floor(x1), z: Math.floor(z1) };
+    const dx = b.x - a.x, dz = b.z - a.z, pasos = Math.min(40, Math.max(Math.abs(dx), Math.abs(dz)));
+    const res = [], vistas = new Set();
+    for (let i = 0; i <= pasos; i++) {
+      const x = a.x + Math.round(pasos ? dx * i / pasos : 0), z = a.z + Math.round(pasos ? dz * i / pasos : 0), k = z * 1000 + x;
+      if (vistas.has(k)) continue; vistas.add(k);
+      res.push({ x, z, ok: !this.mundo.motivoNoConstruir(JUGADOR, tipo, x, z) });
+    }
+    return res;
+  }
+  esMuro() { return this.modoActual?.tipo === "construir" && EDIFICIOS[this.modoActual.edificio].muro; }
+  finLinea(x, z, shift) {
+    const tipo = this.modoActual.edificio, ini = this.lineaMuro; this.lineaMuro = null;
+    const casillas = this.casillasLinea(ini.x, ini.z, x, z, tipo).filter(c => c.ok);
+    this.vista.mostrarLinea([]);
+    const peones = this.propias().filter(e => e.clase === "unidad" && UNIDADES[e.tipo].construye);
+    if (!peones.length || !casillas.length) return;
+    // un solo peón levanta la línea en orden, empezando por la punta más cercana; los peones libres de cerca ayudan solos
+    peones.sort((a, b) => Math.hypot(a.x - ini.x, a.z - ini.z) - Math.hypot(b.x - ini.x, b.z - ini.z));
+    const peon = peones[0];
+    let hechas = 0;
+    for (const c of casillas) {
+      const r = this.ordenar({ tipo: "construir", ids: [peon.id], edificio: tipo, tx: c.x, tz: c.z, encolar: hechas > 0 || shift });
+      if (!r.ok) break;
+      hechas++;
+    }
+    if (hechas) { sonar("orden"); if (hechas < casillas.length) this.hud.aviso(`Alcanzó para ${hechas} de ${casillas.length} tramos.`, "error"); }
+    if (!shift) this.cancelarModo();
+  }
 
   propias() { return this.sel.map(id => this.mundo.ents.get(id)).filter(e => e && e.dueño === JUGADOR); }
 
@@ -238,9 +303,29 @@ class Juego {
     c.objetivo.x = THREE.MathUtils.clamp(c.objetivo.x + dx * Math.cos(g) + dz * Math.sin(g), 4, N - 4);
     c.objetivo.z = THREE.MathUtils.clamp(c.objetivo.z - dx * Math.sin(g) + dz * Math.cos(g), 6, N + 4);
   }
-  centrar(x, z) { const c = this.ctx.cam; c.objetivo.x = x; c.objetivo.z = z + c.distancia * 0.12; }
+  // pone (x, z) en el centro útil de la pantalla (un poco arriba del medio, por el panel de abajo), con la cámara girada o no
+  // (0,2 de la distancia: el panel de abajo tapa casi un tercio de la pantalla)
+  centrar(x, z) { const c = this.ctx.cam, d = c.distancia * 0.2; c.objetivo.x = x + Math.sin(c.giro) * d; c.objetivo.z = z + Math.cos(c.giro) * d; }
+  // girar: el edificio que se está ubicando o los edificios propios seleccionados
+  girarEdificio(sentido = 1) {
+    if (this.modoActual?.tipo === "construir") { this.modoActual.rot = ((this.modoActual.rot || 0) + sentido + 4) % 4; sonar("clic"); return true; }
+    const eds = this.propias().filter(e => e.clase === "edificio");
+    if (eds.length) { this.ordenar({ tipo: "girar", ids: eds.map(e => e.id), sentido }); sonar("clic"); return true; }
+    return false;
+  }
+  // dir: 1 izquierda, -1 derecha (de a 45°), 0 = volver al norte por el camino más corto
+  rotar(dir) {
+    const c = this.ctx.cam;
+    if (dir === 0) c.giroObj = Math.round(c.giroObj / (Math.PI * 2)) * Math.PI * 2;
+    else c.giroObj += dir * Math.PI / 4;
+  }
   irAAlerta() { if (this.ultimaAlerta) this.centrar(this.ultimaAlerta.x, this.ultimaAlerta.z); else if (this.sel.length) { const e = this.mundo.ents.get(this.sel[0]); this.centrar(e.x, e.z); } }
   alertas() { return this.alertasMini; }
+  // punto cardinal de un vector del mapa (el norte es -z, como se ve con la cámara sin girar)
+  direccion(dx, dz) {
+    const a = Math.atan2(dx, -dz), i = ((Math.round(a / (Math.PI / 4)) % 8) + 8) % 8;
+    return ["norte", "noreste", "este", "sudeste", "sur", "sudoeste", "oeste", "noroeste"][i];
+  }
 
   vistaEnSuelo() {
     const r = this.ctx.renderer.domElement.getBoundingClientRect();
@@ -269,6 +354,9 @@ class Juego {
         break;
       }
       case "cancelar": { const e = propias.find(e => e.clase === "edificio"); if (e) this.ordenar({ tipo: "cancelar", id: e.id }); break; }
+      case "girar": this.girarEdificio(1); break;
+      case "mejorar": { const e = propias.find(e => e.tipo === "castillo"); if (e && this.ordenar({ tipo: "mejorar", id: e.id }).ok) sonar("orden"); break; }
+      case "investigar": { const e = propias.find(e => e.clase === "edificio" && EDIFICIOS[e.tipo].investiga); if (e && this.ordenar({ tipo: "investigar", id: e.id, inv: c.inv }).ok) sonar("orden"); break; }
     }
   }
 
@@ -282,13 +370,14 @@ class Juego {
       else this.ordenar({ tipo: "mover", ids, x, z, ataque: true });
       this.vista.marca(x, z, "ataque"); sonar("ataque");
     } else if (m.tipo === "reunion") { this.ponerReunion(x, z); }
+    else if (m.tipo === "construir" && EDIFICIOS[m.edificio].muro) { this.lineaMuro = { x, z }; return; }
     else if (m.tipo === "construir") {
       const lado = EDIFICIOS[m.edificio].lado, tx = Math.floor(x - lado / 2 + 0.5), tz = Math.floor(z - lado / 2 + 0.5);
       const peones = propias.filter(e => e.clase === "unidad" && UNIDADES[e.tipo].construye);
-      // va el peón más cercano (con Shift, todos los seleccionados)
+      // va el peón más cercano; con Shift la obra se encola para el mismo peón y se sigue ubicando
       peones.sort((a, b) => Math.hypot(a.x - x, a.z - z) - Math.hypot(b.x - x, b.z - z));
-      const quien = shift ? peones : peones.slice(0, 1);
-      const r = this.ordenar({ tipo: "construir", ids: quien.map(e => e.id), edificio: m.edificio, tx, tz });
+      const quien = shift ? [peones.find(p => p.orden?.tipo === "construir") || peones[0]] : peones.slice(0, 1);
+      const r = this.ordenar({ tipo: "construir", ids: quien.map(e => e.id), edificio: m.edificio, tx, tz, encolar: shift, rot: m.rot || 0 });
       if (r.ok) { sonar("orden"); this.vista.marca(tx + lado / 2, tz + lado / 2, "mover"); if (shift && this.mundo.faltaPara(this.mundo.jugadores[JUGADOR], EDIFICIOS[m.edificio].costo) === null) return; }
       else return;
     }
@@ -340,10 +429,15 @@ class Juego {
   // puntero sobre el mapa: fantasma de construcción y resaltado
   alPasar(p) {
     if (!p) { this.vista.hover = null; return; }
+    if (this.lineaMuro && this.esMuro()) {
+      this.vista.mostrarFantasma(null);
+      this.vista.mostrarLinea(this.casillasLinea(this.lineaMuro.x, this.lineaMuro.z, p.x, p.z, this.modoActual.edificio));
+      return;
+    }
     if (this.modoActual?.tipo === "construir") {
       const tipo = this.modoActual.edificio, lado = EDIFICIOS[tipo].lado;
       const tx = Math.floor(p.x - lado / 2 + 0.5), tz = Math.floor(p.z - lado / 2 + 0.5);
-      this.vista.mostrarFantasma(tipo, tx, tz, !this.mundo.motivoNoConstruir(JUGADOR, tipo, tx, tz));
+      this.vista.mostrarFantasma(tipo, tx, tz, !this.mundo.motivoNoConstruir(JUGADOR, tipo, tx, tz), this.modoActual.rot || 0);
       this.vista.hover = null;
       return;
     }
@@ -362,25 +456,24 @@ class Juego {
         <div class="titulo"><span>Coronas</span><small>de Hierro</small></div>
         <p class="lema">Levantá tu reino, juntá oro y madera, y aplastá al rival antes de que él te aplaste a vos.</p>
         <div class="opcion"><span>Dificultad</span><div class="selector" id="dif">${Object.entries(DIFICULTADES).map(([k, d]) => `<button data-v="${k}" aria-pressed="${k === this.dificultad}">${d.nombre}</button>`).join("")}</div></div>
-        <div class="opcion"><span>Gráficos</span><div class="selector" id="cal">${Object.keys(CALIDADES).map(k => `<button data-v="${k}" aria-pressed="${k === this.calidad}">${k[0].toUpperCase() + k.slice(1)}</button>`).join("")}</div></div>
         <button class="jugar" id="jugar">Comenzar la batalla</button>
+        <button class="sec" id="abrir-config">Configuración · gráficos, controles y sonido</button>
         <details class="ayuda"><summary>Cómo se juega</summary>
           <ul>
             <li><b>Clic izquierdo</b> elige; <b>arrastrar</b> elige varios; <b>doble clic</b> elige todos los de ese tipo en pantalla.</li>
             <li><b>Clic derecho</b> da la orden: mover, atacar, minar oro, talar o ayudar a construir.</li>
             <li>Los <b>peones</b> construyen con <kbd>Z</kbd>. Las <b>granjas</b> dan comida para más tropas.</li>
             <li>Comandos con <kbd>Q</kbd> <kbd>W</kbd> <kbd>E</kbd> <kbd>R</kbd> / <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> <kbd>F</kbd> / <kbd>Z</kbd> <kbd>X</kbd> <kbd>C</kbd> <kbd>V</kbd>, según su lugar en la grilla.</li>
-            <li><kbd>Ctrl</kbd>+<kbd>1</kbd>…<kbd>9</kbd> arma grupos. <kbd>Espacio</kbd> va a la última alerta. Cámara: bordes de pantalla, flechas, rueda y botón del medio.</li>
+            <li><kbd>Ctrl</kbd>+<kbd>1</kbd>…<kbd>9</kbd> arma grupos. <kbd>${nombreTecla(config.valor.teclas.alerta)}</kbd> va a la última alerta.</li>
+            <li>Cámara: bordes de pantalla, flechas o arrastrar con el botón del medio para moverte; rueda para el zoom. Para <b>rotar</b>: <kbd>Shift</kbd> + arrastrar con el botón del medio, <kbd>Ctrl</kbd>+<kbd>←</kbd> <kbd>→</kbd>, <kbd>${nombreTecla(config.valor.teclas.girarIzq)}</kbd> <kbd>${nombreTecla(config.valor.teclas.girarDer)}</kbd> o los botones del minimapa; <kbd>${nombreTecla(config.valor.teclas.norte)}</kbd> vuelve al norte.</li>
+            <li>Todas las teclas se pueden cambiar en <b>Configuración</b>.</li>
             <li>Ganás cuando el rival se queda sin edificios ni peones.</li>
           </ul>
         </details>
       </div>
       <a class="salir" href="/juegos">← Catálogo de juegos</a>`;
     m.querySelector("#dif").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; this.dificultad = b.dataset.v; guardar("dificultad", this.dificultad); m.querySelectorAll("#dif button").forEach(x => x.setAttribute("aria-pressed", x === b)); sonar("clic"); });
-    m.querySelector("#cal").addEventListener("click", e => {
-      const b = e.target.closest("button"); if (!b || b.dataset.v === this.calidad) return;
-      guardar("calidad", b.dataset.v); guardar("calidad-auto", "0"); location.reload();      // cambia sombras y posprocesado: hay que rearmar el renderizador
-    });
+    m.querySelector("#abrir-config").addEventListener("click", () => { sonar("clic"); m.hidden = true; this.configuracion.abrir(() => { m.hidden = false; }); });
     m.querySelector("#jugar").addEventListener("click", () => this.empezar());
     if (sessionStorage.getItem("coronas-revancha")) { sessionStorage.removeItem("coronas-revancha"); this.empezar(); }
   }
@@ -388,13 +481,22 @@ class Juego {
   empezar() {
     $("#menu").hidden = true;
     this.ia = new IA(this.mundo, 1, this.dificultad);
-    const castillo = this.mundo.edificiosDe(JUGADOR)[0];
-    this.centrar(castillo.x + 3, castillo.z - 3);
-    this.ctx.cam.distanciaObj = 26;
-    this.seleccionar(this.mundo.unidadesDe(JUGADOR).map(u => u.id));
+    const castillo = this.mundo.edificiosDe(JUGADOR)[0], mina = this.mundo.minaCercana(castillo.x, castillo.z, 20);
+    // los peones arrancan trabajando, como en los RTS modernos: tres a la mina y dos al bosque
+    const peones = this.mundo.unidadesDe(JUGADOR);
+    if (mina) this.mundo.ordenar(JUGADOR, { tipo: "recolectar", ids: peones.slice(0, 3).map(u => u.id), mina: mina.id });
+    const arbol = this.mundo.arbolCercano(castillo.x, castillo.z, 20);
+    if (arbol) this.mundo.ordenar(JUGADOR, { tipo: "recolectar", ids: peones.slice(3).map(u => u.id), x: arbol.x, z: arbol.z });
+    // encuadre: el castillo y la mina juntos en pantalla
+    this.ctx.cam.distanciaObj = 30;
+    if (mina) this.centrar(mina.x + (castillo.x - mina.x) * 0.45, mina.z + (castillo.z - mina.z) * 0.45); else this.centrar(castillo.x, castillo.z);
     this.estado = "jugando";
     document.body.classList.add("en-juego");
-    this.hud.aviso("Mandá a los peones a la mina y al bosque con clic derecho.");
+    if (mina) {
+      this.alertasMini.push({ x: mina.x, z: mina.z, t: performance.now() / 1000, oro: true });
+      const lado = this.direccion(mina.x - castillo.x, mina.z - castillo.z);
+      this.hud.aviso(`Tu mina de oro está al ${lado} del castillo (titila en el minimapa).`);
+    }
     sonar("construido");
   }
 
@@ -405,12 +507,14 @@ class Juego {
     const p = $("#pausa"); p.hidden = false;
     p.innerHTML = `<div class="menu-caja chica"><div class="titulo"><span>Pausa</span></div>
       <button class="jugar" data-a="seguir">Seguir jugando</button>
+      <button class="sec" data-a="config">Configuración</button>
       <button class="sec" data-a="reiniciar">Empezar de nuevo</button>
       <a class="sec" href="/juegos/coronas">Volver al menú principal</a>
       <a class="sec" href="/juegos">Salir al catálogo</a></div>`;
     p.onclick = e => {
       const a = e.target.closest("[data-a]")?.dataset.a;
       if (a === "seguir") this.continuar();
+      if (a === "config") { p.hidden = true; this.configuracion.abrir(() => { p.hidden = false; }); }
       if (a === "reiniciar") { sessionStorage.setItem("coronas-revancha", "1"); location.reload(); }
     };
   }

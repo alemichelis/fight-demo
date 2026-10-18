@@ -145,7 +145,9 @@ export function crearTerreno(escena, mundo, tx, calidad) {
 
   /* ---------------------------------------------------------------- pasto */
   // matas de hojas finas (3 planos cruzados) en las casillas libres; se apagan donde se construye
-  const densidad = calidad === "alta" ? 5 : calidad === "media" ? 2.5 : 0;
+  // se arma siempre con la densidad máxima; la configuración decide cuántas matas se dibujan (densidadPasto)
+  const densidad = 5;
+  let libresCant = 0;
   const pastoDe = new Map();
   let pasto = null;
   if (densidad > 0) {
@@ -168,7 +170,7 @@ export function crearTerreno(escena, mundo, tx, calidad) {
       if (m > 0.35) continue;
       libres.push(i);
     }
-    const total = Math.floor(libres.length * densidad);
+    const total = Math.floor(libres.length * densidad); libresCant = libres.length;
     pasto = new THREE.InstancedMesh(mata, matPasto, total);
     pasto.receiveShadow = true; pasto.count = 0;
     for (let n = 0; n < total; n++) {
@@ -185,6 +187,13 @@ export function crearTerreno(escena, mundo, tx, calidad) {
   const cero = new THREE.Matrix4().makeScale(0, 0, 0);
   return {
     grupo, suelo,
+    // matas por casilla libre (0 = sin pasto). Las primeras «libres» matas cubren una por casilla, y así sucesivamente,
+    // así cualquier cantidad queda pareja en todo el mapa.
+    densidadPasto(k) {
+      if (!pasto) return;
+      pasto.visible = k > 0;
+      pasto.count = Math.min(pasto.instanceMatrix.count, Math.floor(libresCant * k));
+    },
     // un árbol talado: se achica y se hunde en un instante, sin saltos
     talar(x, z) {
       const r = arbolDe.get(z * N + x); if (!r) return;

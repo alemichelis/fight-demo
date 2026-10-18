@@ -1,10 +1,14 @@
 // Mouse y teclado → acciones del juego. Nada de lógica de partida acá: sólo traduce gestos.
 //   Clic izq.: seleccionar (arrastrar = recuadro, doble clic = todos los del mismo tipo en pantalla, Shift suma/quita)
 //   Clic der.: orden según lo que haya bajo el puntero (mover, atacar, juntar, ayudar a construir, punto de reunión)
-//   Cámara: bordes de la pantalla, flechas, botón del medio arrastrando, rueda para el zoom
+//   Cámara: bordes de la pantalla, flechas o botón del medio arrastrando para moverse; rueda para el zoom;
+//   Shift + botón del medio para rotar e inclinar; Ctrl+← → para rotar; N para volver al norte
 //   Ctrl+1..9 arma grupos; 1..9 los elige (dos veces seguidas centra la cámara). Espacio: ir a la última alerta.
 
 import * as THREE from "three";
+import { config } from "../config.js";
+
+const norm = k => k.length === 1 ? k.toLowerCase() : k;
 
 export class Controles {
   constructor(juego, lienzo, cuadro) {
@@ -20,7 +24,7 @@ export class Controles {
     lienzo.addEventListener("pointerdown", e => this.abajo(e));
     addEventListener("pointermove", e => this.mover(e));
     addEventListener("pointerup", e => this.arriba(e));
-    lienzo.addEventListener("wheel", e => { e.preventDefault(); const c = this.j.ctx.cam; c.distanciaObj = THREE.MathUtils.clamp(c.distanciaObj * (e.deltaY > 0 ? 1.12 : 0.89), c.min, c.max); }, { passive: false });
+    lienzo.addEventListener("wheel", e => { e.preventDefault(); if (this.j.modo() === "construir") { this.j.girarEdificio(e.deltaY > 0 ? 1 : -1); return; } const c = this.j.ctx.cam; c.distanciaObj = THREE.MathUtils.clamp(c.distanciaObj * (e.deltaY > 0 ? 1.12 : 0.89), c.min, c.max); }, { passive: false });
     document.addEventListener("pointerleave", () => this.mouse.dentro = false);
     document.addEventListener("pointerenter", () => this.mouse.dentro = true);
     addEventListener("blur", () => { this.teclas.clear(); this.mouse.dentro = false; });
@@ -50,7 +54,7 @@ export class Controles {
   abajo(e) {
     if (!this.j.jugando()) return;
     this.mouse.x = e.clientX; this.mouse.y = e.clientY;
-    if (e.button === 1) { e.preventDefault(); this.medio = { x: e.clientX, y: e.clientY }; return; }
+    if (e.button === 1) { e.preventDefault(); this.medio = { x: e.clientX, y: e.clientY, rotar: e.shiftKey }; return; }
     const p = this.suelo(e.clientX, e.clientY);
     if (e.button === 2) {
       if (this.j.modo()) { this.j.cancelarModo(); return; }
@@ -67,9 +71,10 @@ export class Controles {
     this.mouse.x = e.clientX; this.mouse.y = e.clientY; this.mouse.dentro = true;
     if (this.medio) {
       const dx = e.clientX - this.medio.x, dy = e.clientY - this.medio.y;
-      this.medio = { x: e.clientX, y: e.clientY };
-      const k = this.j.ctx.cam.distancia * 0.0022;
-      this.j.desplazar(-dx * k, -dy * k * 1.3);
+      this.medio.x = e.clientX; this.medio.y = e.clientY;
+      const cam = this.j.ctx.cam;
+      if (!this.medio.rotar) { const k = cam.distancia * 0.0022; this.j.desplazar(-dx * k, -dy * k * 1.3); }
+      else { cam.giroObj -= dx * 0.006 * (config.valor.camara.invertirGiro ? -1 : 1); cam.inclinacion = THREE.MathUtils.clamp(cam.inclinacion + dy * 0.12, -16, 16); }
       return;
     }
     if (this.arrastre) {
@@ -83,6 +88,7 @@ export class Controles {
 
   arriba(e) {
     if (e.button === 1) { this.medio = null; return; }
+    if (e.button === 0 && this.j.lineaMuro) { const p = this.suelo(e.clientX, e.clientY); if (p) this.j.finLinea(p.x, p.z, e.shiftKey); else this.j.lineaMuro = null; return; }
     if (e.button !== 0 || !this.arrastre) return;
     const a = this.arrastre; this.arrastre = null; this.cuadro.hidden = true;
     const w = Math.abs(e.clientX - a.x0), h = Math.abs(e.clientY - a.y0);
@@ -100,12 +106,17 @@ export class Controles {
   /* ---------------------------------------------------------------- teclado */
 
   tecla(e) {
-    const k = e.key;
-    if (k === "F10" || (k === "Escape" && !this.j.modo() && this.j.jugando())) { e.preventDefault(); this.j.menu(); return; }
+    const k = e.key, T = config.valor.teclas, n = norm(k), sinMod = !e.ctrlKey && !e.metaKey && !e.altKey;
+    if (n === T.menu || (k === "Escape" && !this.j.modo() && this.j.jugando())) { e.preventDefault(); this.j.menu(); return; }
     if (!this.j.jugando()) return;
     if (k === "Escape") { this.j.cancelarModo(); return; }
+    if ((e.ctrlKey || e.metaKey) && (k === "ArrowLeft" || k === "ArrowRight")) { e.preventDefault(); this.j.rotar(k === "ArrowLeft" ? 1 : -1); return; }
     if (k.startsWith("Arrow")) { this.teclas.add(k); e.preventDefault(); return; }
-    if (k === " ") { e.preventDefault(); this.j.irAAlerta(); return; }
+    if (sinMod && n === T.girarIzq) { e.preventDefault(); this.j.rotar(1); return; }
+    if (sinMod && n === T.girarDer) { e.preventDefault(); this.j.rotar(-1); return; }
+    if (sinMod && n === T.norte) { e.preventDefault(); this.j.rotar(0); return; }
+    if (sinMod && n === T.alerta) { e.preventDefault(); this.j.irAAlerta(); return; }
+    if (sinMod && n === T.girarEdificio && this.j.girarEdificio(e.shiftKey ? -1 : 1)) { e.preventDefault(); return; }
     if (/^[1-9]$/.test(k)) {
       const n = +k;
       if (e.ctrlKey || e.metaKey) { e.preventDefault(); this.j.guardarGrupo(n); return; }
@@ -115,18 +126,18 @@ export class Controles {
       return;
     }
     if (e.ctrlKey || e.metaKey || e.altKey) return;
-    if (this.j.hud.tecla(k.toLowerCase())) e.preventDefault();
+    if (this.j.hud.tecla(n)) e.preventDefault();
   }
 
   /* ---------------------------------------------------------------- por cuadro: cámara y fantasma */
 
   actualizar(dt) {
-    const cam = this.j.ctx.cam, vel = cam.distancia * 1.05 * dt;
+    const cam = this.j.ctx.cam, C = config.valor.camara, vel = cam.distancia * 1.05 * dt * C.velocidad;
     let dx = 0, dz = 0;
     if (this.teclas.has("ArrowLeft")) dx -= 1; if (this.teclas.has("ArrowRight")) dx += 1;
     if (this.teclas.has("ArrowUp")) dz -= 1; if (this.teclas.has("ArrowDown")) dz += 1;
     const borde = 10, m = this.mouse;
-    if (m.dentro && document.hasFocus() && !this.arrastre && !this.medio) {
+    if (C.bordes && m.dentro && document.hasFocus() && !this.arrastre && !this.medio) {
       if (m.x <= borde) dx -= 1; if (m.x >= innerWidth - borde) dx += 1;
       if (m.y <= borde) dz -= 1; if (m.y >= innerHeight - borde) dz += 1;
     }
