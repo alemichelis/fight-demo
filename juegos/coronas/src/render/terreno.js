@@ -5,6 +5,51 @@ import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { ARBOL, ROCA, AGUA } from "../sim/mapa.js";
 import { crearAzar, crearRuido } from "../sim/azar.js";
 import { conNiebla, conViento, parchar, U } from "./parches.js";
+import { copia } from "./texturas.js";
+
+// Textura de follaje dibujada en un canvas, con transparencia: «hojas» (racimo de hojas con nervadura, más claras
+// arriba) o «agujas» (rama de pino que sale del tronco a la izquierda hacia la punta a la derecha).
+function texturaFollaje(tipo, semilla) {
+  const c = document.createElement("canvas"); c.width = c.height = 512;
+  const g = c.getContext("2d"), r = crearAzar(semilla + (tipo === "hojas" ? 3 : 7));
+  if (tipo === "hojas") {
+    g.strokeStyle = "#4a3422"; g.lineWidth = 4; g.lineCap = "round";
+    for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2 + r.sig(); g.beginPath(); g.moveTo(256, 256); g.quadraticCurveTo(256 + Math.cos(a + 0.4) * 110, 256 + Math.sin(a + 0.4) * 110, 256 + Math.cos(a) * 200, 256 + Math.sin(a) * 200); g.stroke(); }
+    for (let k = 0; k < 520; k++) {
+      const a = r.sig() * Math.PI * 2, borde = 0.78 + 0.22 * Math.sin(a * 5 + r.sig());
+      const d = Math.sqrt(r.sig()) * 225 * borde, x = 256 + Math.cos(a) * d, y = 256 + Math.sin(a) * d;
+      const L = 18 + r.sig() * 16, W = L * 0.42, luz = 0.8 + 0.4 * (1 - y / 512) + (r.sig() - 0.5) * 0.3;
+      const h = 86 + r.sig() * 34, sat = 45 + r.sig() * 25, l = Math.min(40, (15 + r.sig() * 10) * luz);
+      g.save(); g.translate(x, y); g.rotate(r.sig() * Math.PI * 2);
+      g.fillStyle = `hsl(${h},${sat}%,${l}%)`;
+      g.beginPath(); g.moveTo(-L / 2, 0); g.quadraticCurveTo(0, -W, L / 2, 0); g.quadraticCurveTo(0, W, -L / 2, 0); g.fill();
+      g.strokeStyle = `hsla(${h},${sat}%,${l + 14}%,0.55)`; g.lineWidth = 1; g.beginPath(); g.moveTo(-L / 2, 0); g.lineTo(L / 2, 0); g.stroke();
+      g.restore();
+    }
+  } else {
+    const rama = (x0, y0, largo, ang, grosor, nivel) => {
+      const x1 = x0 + Math.cos(ang) * largo, y1 = y0 + Math.sin(ang) * largo;
+      g.strokeStyle = "#3b2c1e"; g.lineWidth = grosor; g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke();
+      const pasos = Math.floor(largo / 3);
+      for (let k = 0; k < pasos; k++) {
+        const t = k / pasos, px = x0 + (x1 - x0) * t, py = y0 + (y1 - y0) * t, L = (34 - nivel * 8) * (1 - t * 0.55);
+        for (const lado of [-1, 1]) {
+          const a = ang + lado * (0.75 + r.sig() * 0.35) + 0.25;
+          const l = 11 + r.sig() * 10 + (1 - py / 512) * 6;
+          g.strokeStyle = `hsl(${128 + r.sig() * 22},${32 + r.sig() * 20}%,${l}%)`; g.lineWidth = 2.2;
+          g.beginPath(); g.moveTo(px, py); g.lineTo(px + Math.cos(a) * L, py + Math.sin(a) * L); g.stroke();
+        }
+        if (nivel === 0 && k % 9 === 4) rama(px, py, largo * (1 - t) * 0.45, ang + (r.sig() < 0.5 ? -0.6 : 0.6), 2, 1);
+      }
+    };
+    rama(6, 200, 490, 0.12, 5, 0);
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+  return t;
+}
+
+const SECTOR = 28;     // casillas por lado de cada sector de árboles y pasto
 
 export function crearTerreno(escena, mundo, tx, calidad) {
   const mapa = mundo.mapa, N = mapa.lado;
@@ -96,40 +141,92 @@ export function crearTerreno(escena, mundo, tx, calidad) {
   agua.receiveShadow = true; grupo.add(agua);
 
   /* ---------------------------------------------------------------- árboles */
-  // dos especies hechas de geometría simple con colores por vértice; la variedad sale de escala, giro y tono
-  const pintar = (g, c) => { const col = new THREE.Color(c), arr = new Float32Array(g.attributes.position.count * 3); for (let i = 0; i < arr.length; i += 3) { arr[i] = col.r; arr[i + 1] = col.g; arr[i + 2] = col.b; } g.setAttribute("color", new THREE.BufferAttribute(arr, 3)); return g; };
-  const sinIndice = g => g.index ? g.toNonIndexed() : g;
-  const deformar = (g, k, sem) => { const p = g.attributes.position, r = crearAzar(sem); for (let i = 0; i < p.count; i++) p.setXYZ(i, p.getX(i) * (1 + (r.sig() - 0.5) * k), p.getY(i) * (1 + (r.sig() - 0.5) * k * 0.6), p.getZ(i) * (1 + (r.sig() - 0.5) * k)); g.computeVertexNormals(); return g; };
-  const pino = mergeGeometries([
-    pintar(sinIndice(new THREE.CylinderGeometry(0.07, 0.12, 1.0, 6).translate(0, 0.5, 0)), "#4a3220"),
-    pintar(sinIndice(deformar(new THREE.ConeGeometry(0.75, 1.3, 8).translate(0, 1.2, 0), 0.15, 1)), "#24452a"),
-    pintar(sinIndice(deformar(new THREE.ConeGeometry(0.6, 1.1, 8).translate(0, 1.85, 0), 0.15, 2)), "#2b5231"),
-    pintar(sinIndice(deformar(new THREE.ConeGeometry(0.42, 0.95, 7).translate(0, 2.45, 0), 0.15, 3)), "#335e37")
-  ]);
-  const frondoso = mergeGeometries([
-    pintar(sinIndice(new THREE.CylinderGeometry(0.09, 0.15, 1.3, 6).translate(0, 0.65, 0)), "#4f3523"),
-    pintar(sinIndice(deformar(new THREE.IcosahedronGeometry(0.72, 1).translate(0, 1.75, 0), 0.25, 4)), "#3f6a2c"),
-    pintar(sinIndice(deformar(new THREE.IcosahedronGeometry(0.52, 1).translate(0.42, 1.45, 0.2), 0.25, 5)), "#4a7a33"),
-    pintar(sinIndice(deformar(new THREE.IcosahedronGeometry(0.5, 1).translate(-0.38, 1.5, -0.25), 0.25, 6)), "#365f27")
-  ]);
-  const matArbol = conNiebla(conViento(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.88, metalness: 0, flatShading: true }), 0.07, 2.6));
+  // Árboles con tarjetas de follaje (como los juegos AAA): tronco con ramas y copa hecha de planos cruzados con una
+  // textura de hojas recortada. Las normales de la copa salen del centro, así la luz la modela redonda y suave.
+  // Cada especie son dos InstancedMesh (tronco y copa) que comparten la matriz de cada árbol.
+  const azarT = crearAzar(mapa.semilla + 13);
+  const cilindro = (rArr, rAb, alto, x, y, z, rx = 0, rz = 0) => new THREE.CylinderGeometry(rArr, rAb, alto, 7, 1).translate(0, alto / 2, 0).rotateX(rx).rotateZ(rz).translate(x, y, z);
+  const normalesDesde = (g, cx, cy, cz, sy = 1) => {
+    const p = g.attributes.position, n = g.attributes.normal, v = new THREE.Vector3();
+    for (let k = 0; k < p.count; k++) { v.set(p.getX(k) - cx, (p.getY(k) - cy) * sy, p.getZ(k) - cz).normalize(); n.setXYZ(k, v.x, v.y, v.z); }
+    return g;
+  };
+  function copaFrondosa(r) {
+    const q = [], centro = [0, 1.95, 0];
+    const racimo = (cx, cy, cz, tam) => { for (let k = 0; k < 3; k++) q.push(new THREE.PlaneGeometry(tam, tam).rotateX(r.sig() * Math.PI).rotateY(r.sig() * Math.PI).rotateZ(r.sig() * Math.PI).translate(cx, cy, cz)); };
+    for (let c = 0; c < 10; c++) {
+      const a = c / 10 * Math.PI * 2 + r.sig() * 0.5, h = r.sig() * 1.1 - 0.45, rad = 0.62 * (1 - Math.abs(h) * 0.35);
+      racimo(Math.cos(a) * rad, centro[1] + h * 0.62, Math.sin(a) * rad, 0.95 + r.sig() * 0.3);
+    }
+    racimo(0, 2.45, 0, 1.0); racimo(0.1, 1.95, -0.05, 1.1);
+    return normalesDesde(mergeGeometries(q), ...centro, 1.2);
+  }
+  function troncoFrondoso(r) {
+    return mergeGeometries([
+      cilindro(0.075, 0.15, 1.75, 0, 0, 0),
+      cilindro(0.03, 0.06, 0.75, 0, 1.05, 0, 0.2, 0.9), cilindro(0.03, 0.06, 0.7, 0, 1.15, 0, -0.8, -0.5), cilindro(0.03, 0.05, 0.65, 0, 1.3, 0, 0.9, 0.3)
+    ].map(g => g.toNonIndexed()));
+  }
+  function copaPino(r) {
+    const q = [];
+    for (let t = 0; t < 6; t++) {
+      const y = 0.75 + t * 0.4, R = 1.05 * (1 - t / 6.6), giro = t * 0.6 + r.sig();
+      // cada rama: plano horizontal que sale del tronco (x) y cae un poco hacia la punta; vista desde arriba tapa el tronco
+      for (let k = 0; k < 7; k++) q.push(new THREE.PlaneGeometry(R, R * 0.85).rotateX(-Math.PI / 2).translate(R / 2, 0, 0).rotateZ(-0.32 - r.sig() * 0.14).rotateY(giro + k / 7 * Math.PI * 2).translate(0, y, 0));
+    }
+    for (let k = 0; k < 3; k++) q.push(new THREE.PlaneGeometry(0.5, 0.5).rotateX(-Math.PI / 2).translate(0.25, 0, 0).rotateZ(-0.9).rotateY(k * 2.1).translate(0, 3.05, 0));
+    const g = mergeGeometries(q), p = g.attributes.position, n = g.attributes.normal, v = new THREE.Vector3();
+    for (let k = 0; k < p.count; k++) { v.set(p.getX(k), 0.8, p.getZ(k)).normalize(); n.setXYZ(k, v.x, v.y, v.z); }
+    return g;
+  }
+  const troncoPino = () => cilindro(0.05, 0.13, 3.0, 0, 0, 0).toNonIndexed();
+
+  const hojas = texturaFollaje("hojas", mapa.semilla), agujas = texturaFollaje("agujas", mapa.semilla);
+  const matTronco = conNiebla(new THREE.MeshStandardMaterial({ map: copia(tx.madera.mapa, 0.5, 2), normalMap: copia(tx.madera.normal, 0.5, 2), color: "#9a7a5c", roughness: 0.95 }));
+  const matHojas = conNiebla(conViento(new THREE.MeshStandardMaterial({ map: hojas, alphaTest: 0.5, side: THREE.DoubleSide, roughness: 0.82 }), 0.08, 2.6));
+  const matAgujas = conNiebla(conViento(new THREE.MeshStandardMaterial({ map: agujas, alphaTest: 0.5, side: THREE.DoubleSide, roughness: 0.85 }), 0.06, 3.0));
   const celdasArbol = [];
   for (let i = 0; i < N * N; i++) if (mapa.tipo[i] === ARBOL) celdasArbol.push(i);
-  const especies = [pino, frondoso].map(g => { const m = new THREE.InstancedMesh(g, matArbol, celdasArbol.length); m.castShadow = true; m.receiveShadow = true; m.count = 0; grupo.add(m); return m; });
-  const arbolDe = new Map();               // casilla → [malla, índice]
+  // dos variantes de cada especie para que no se vean todos iguales
+  const especies = [];
+  for (let v = 0; v < 2; v++) {
+    especies.push({ tronco: troncoPino(), copa: copaPino(azarT), matCopa: matAgujas });
+    especies.push({ tronco: troncoFrondoso(azarT), copa: copaFrondosa(azarT), matCopa: matHojas });
+  }
+  // Sectores de SECTOR×SECTOR casillas: lo que queda fuera de la cámara (o del cuadro de la sombra) no se dibuja.
+  const sectorDe = i => Math.floor((i % N) / SECTOR) + Math.floor(((i / N) | 0) / SECTOR) * 100;
+  const lotes = new Map();                 // "sector|especie" → { e, mt, mc } con su cantidad exacta de árboles
+  const elegirEspecie = new Map();
+  for (const i of celdasArbol) {
+    const x = i % N, z = (i / N) | 0, pino = ruido(x * 0.13 + 50, z * 0.13) > 0.5;
+    const ie = (pino ? 0 : 1) + (((i * 2246822519) >>> 0) % 2 ? 2 : 0);
+    elegirEspecie.set(i, ie);
+    const clave = sectorDe(i) + "|" + ie;
+    let l = lotes.get(clave); if (!l) lotes.set(clave, l = { e: especies[ie], n: 0 }); l.n++;
+  }
+  for (const l of lotes.values()) {
+    l.mt = new THREE.InstancedMesh(l.e.tronco, matTronco, l.n);
+    l.mc = new THREE.InstancedMesh(l.e.copa, l.e.matCopa, l.n);
+    for (const m of [l.mt, l.mc]) { m.castShadow = true; m.receiveShadow = true; m.count = 0; grupo.add(m); }
+  }
+  const arbolDe = new Map();               // casilla → [[malla, índice], …] (todas las piezas del árbol)
   const mtx = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), p = new THREE.Vector3(), eje = new THREE.Vector3(0, 1, 0), col = new THREE.Color();
   for (const i of celdasArbol) {
     const x = i % N, z = (i / N) | 0;
-    const e = ruido(x * 0.13 + 50, z * 0.13) > 0.5 ? 0 : 1, m = especies[e];
-    const k = 0.85 + azar.sig() * 0.55, px = x + 0.5 + (azar.sig() - 0.5) * 0.45, pz = z + 0.5 + (azar.sig() - 0.5) * 0.45;
-    p.set(px, mapa.alturaEn(px, pz) - 0.05, pz); q.setFromAxisAngle(eje, azar.sig() * Math.PI * 2); s.set(k, k * (0.9 + azar.sig() * 0.3), k);
-    m.setMatrixAt(m.count, mtx.compose(p, q, s));
-    m.setColorAt(m.count, col.setHSL(0.27 + (azar.sig() - 0.5) * 0.06, 0.35 + azar.sig() * 0.2, 0.42 + azar.sig() * 0.16));
-    arbolDe.set(i, [[m, m.count]]); m.count++;
+    const ie = elegirEspecie.get(i), pino = ie % 2 === 0;
+    const e = lotes.get(sectorDe(i) + "|" + ie);
+    const k = 0.85 + azar.sig() * 0.5, px = x + 0.5 + (azar.sig() - 0.5) * 0.45, pz = z + 0.5 + (azar.sig() - 0.5) * 0.45;
+    p.set(px, mapa.alturaEn(px, pz) - 0.05, pz); q.setFromAxisAngle(eje, azar.sig() * Math.PI * 2); s.set(k, k * (0.88 + azar.sig() * 0.3), k);
+    mtx.compose(p, q, s);
+    const n = e.mt.count++; e.mc.count++;
+    e.mt.setMatrixAt(n, mtx); e.mc.setMatrixAt(n, mtx);
+    e.mc.setColorAt(n, col.setHSL(pino ? 0.36 + (azar.sig() - 0.5) * 0.04 : 0.25 + (azar.sig() - 0.5) * 0.08, 0.35 + azar.sig() * 0.3, 0.5 + azar.sig() * 0.2));
+    arbolDe.set(i, [[e.mt, n], [e.mc, n]]);
   }
-  for (const m of especies) { m.instanceMatrix.needsUpdate = true; if (m.instanceColor) m.instanceColor.needsUpdate = true; m.computeBoundingSphere(); }
+  for (const l of lotes.values()) for (const m of [l.mt, l.mc]) { m.instanceMatrix.needsUpdate = true; if (m.instanceColor) m.instanceColor.needsUpdate = true; m.computeBoundingSphere(); }
 
   /* ---------------------------------------------------------------- rocas */
+  const deformar = (g, k, sem) => { const p = g.attributes.position, r = crearAzar(sem); for (let i = 0; i < p.count; i++) p.setXYZ(i, p.getX(i) * (1 + (r.sig() - 0.5) * k), p.getY(i) * (1 + (r.sig() - 0.5) * k * 0.6), p.getZ(i) * (1 + (r.sig() - 0.5) * k)); g.computeVertexNormals(); return g; };
   const celdasRoca = [];
   for (let i = 0; i < N * N; i++) if (mapa.tipo[i] === ROCA) celdasRoca.push(i);
   const rp = tx.roca.mapa.clone(); rp.repeat.set(1.5, 1.5);
@@ -146,15 +243,15 @@ export function crearTerreno(escena, mundo, tx, calidad) {
   /* ---------------------------------------------------------------- pasto */
   // matas de hojas finas (3 planos cruzados) en las casillas libres; se apagan donde se construye
   // se arma siempre con la densidad máxima; la configuración decide cuántas matas se dibujan (densidadPasto)
-  const densidad = 5;
+  const densidad = 3.5;
   let libresCant = 0;
   const pastoDe = new Map();
   let pasto = null;
   if (densidad > 0) {
-    const hoja = new THREE.PlaneGeometry(0.06, 0.26, 1, 3).translate(0, 0.13, 0);
+    const hoja = new THREE.PlaneGeometry(0.07, 0.26, 1, 2).translate(0, 0.13, 0);
     const hp = hoja.attributes.position; for (let i = 0; i < hp.count; i++) { const y = hp.getY(i); hp.setX(i, hp.getX(i) * (1 - y / 0.3)); hp.setZ(i, y * y * 0.5); }
     const hojas = [];
-    for (let k = 0; k < 7; k++) { const h = hoja.clone(); h.rotateY(k / 7 * Math.PI * 2 + k); h.translate(Math.cos(k * 2.1) * 0.08, 0, Math.sin(k * 2.1) * 0.08); h.scale(1, 0.7 + (k % 3) * 0.2, 1); hojas.push(h); }
+    for (let k = 0; k < 5; k++) { const h = hoja.clone(); h.rotateY(k / 5 * Math.PI * 2 + k); h.translate(Math.cos(k * 2.1) * 0.08, 0, Math.sin(k * 2.1) * 0.08); h.scale(1, 0.7 + (k % 3) * 0.2, 1); hojas.push(h); }
     const mata = mergeGeometries(hojas);
     const colores = new Float32Array(mata.attributes.position.count * 3);
     for (let i = 0; i < mata.attributes.position.count; i++) { const t = Math.min(1, mata.attributes.position.getY(i) / 0.26); colores.set([0.035 + t * 0.09, 0.06 + t * 0.12, 0.015 + t * 0.03], i * 3); }
@@ -170,16 +267,22 @@ export function crearTerreno(escena, mundo, tx, calidad) {
       if (m > 0.35) continue;
       libres.push(i);
     }
-    const total = Math.floor(libres.length * densidad); libresCant = libres.length;
-    pasto = new THREE.InstancedMesh(mata, matPasto, total);
-    pasto.receiveShadow = true; pasto.count = 0;
-    for (let n = 0; n < total; n++) {
-      const i = libres[n % libres.length], x = (i % N) + azar.sig(), z = ((i / N) | 0) + azar.sig(), e = 0.7 + azar.sig() * 0.7;
-      p.set(x, mapa.alturaEn(x, z) - 0.02, z); q.setFromAxisAngle(eje, azar.sig() * 6.28); s.set(e, e * (0.7 + azar.sig() * 0.6), e);
-      pasto.setMatrixAt(pasto.count, mtx.compose(p, q, s));
-      let l = pastoDe.get(i); if (!l) pastoDe.set(i, l = []); l.push(pasto.count++);
+    libresCant = libres.length;
+    const porSector = new Map();
+    for (const i of libres) { const k = sectorDe(i); let l = porSector.get(k); if (!l) porSector.set(k, l = []); l.push(i); }
+    pasto = [];
+    for (const celdas of porSector.values()) {
+      const im = new THREE.InstancedMesh(mata, matPasto, Math.ceil(celdas.length * densidad));
+      im.receiveShadow = true; im.count = 0; im.userData.celdas = celdas.length;
+      im.userData.centro = { x: celdas.reduce((a, i) => a + i % N, 0) / celdas.length, z: celdas.reduce((a, i) => a + ((i / N) | 0), 0) / celdas.length };
+      for (let n = 0; n < im.instanceMatrix.count; n++) {
+        const i = celdas[n % celdas.length], x = (i % N) + azar.sig(), z = ((i / N) | 0) + azar.sig(), e = 0.7 + azar.sig() * 0.7;
+        p.set(x, mapa.alturaEn(x, z) - 0.02, z); q.setFromAxisAngle(eje, azar.sig() * 6.28); s.set(e, e * (0.7 + azar.sig() * 0.6), e);
+        im.setMatrixAt(im.count, mtx.compose(p, q, s));
+        let l = pastoDe.get(i); if (!l) pastoDe.set(i, l = []); l.push([im, im.count++]);
+      }
+      im.instanceMatrix.needsUpdate = true; im.computeBoundingSphere(); grupo.add(im); pasto.push(im);
     }
-    pasto.instanceMatrix.needsUpdate = true; pasto.computeBoundingSphere(); grupo.add(pasto);
   }
 
   /* ---------------------------------------------------------------- cambios en vivo */
@@ -191,8 +294,7 @@ export function crearTerreno(escena, mundo, tx, calidad) {
     // así cualquier cantidad queda pareja en todo el mapa.
     densidadPasto(k) {
       if (!pasto) return;
-      pasto.visible = k > 0;
-      pasto.count = Math.min(pasto.instanceMatrix.count, Math.floor(libresCant * k));
+      for (const im of pasto) { im.visible = k > 0; im.count = Math.min(im.instanceMatrix.count, Math.floor(im.userData.celdas * k)); }
     },
     // un árbol talado: se achica y se hunde en un instante, sin saltos
     talar(x, z) {
@@ -211,7 +313,7 @@ export function crearTerreno(escena, mundo, tx, calidad) {
       const escala = 3.3 / tam.y;
       const ajuste = new THREE.Matrix4().makeScale(escala, escala, escala).multiply(new THREE.Matrix4().makeTranslation(-centro.x, -caja.min.y, -centro.z));
       const elegidos = [];
-      for (const [i, r] of arbolDe) if (r.length === 1 && (((i * 2654435761) >>> 0) % 1000) / 1000 < fraccion) elegidos.push(i);
+      for (const [i, r] of arbolDe) if (r.length === 2 && (((i * 2654435761) >>> 0) % 1000) / 1000 < fraccion) elegidos.push(i);
       if (!elegidos.length) return;
       const piezas = [];
       raiz.traverse(n => {
@@ -227,9 +329,9 @@ export function crearTerreno(escena, mundo, tx, calidad) {
       });
       const azarG = crearAzar(mapa.semilla + 91), m4 = new THREE.Matrix4(), qq = new THREE.Quaternion(), ss = new THREE.Vector3(), pp = new THREE.Vector3();
       elegidos.forEach((i, k) => {
-        const [[mProc, iProc]] = arbolDe.get(i);
+        const partes = arbolDe.get(i), [mProc, iProc] = partes[0];
         mProc.getMatrixAt(iProc, m4); m4.decompose(pp, qq, ss);
-        mProc.setMatrixAt(iProc, cero); mProc.instanceMatrix.needsUpdate = true;
+        for (const [mm, ii] of partes) { mm.setMatrixAt(ii, cero); mm.instanceMatrix.needsUpdate = true; }
         const e = 0.8 + azarG.sig() * 0.45;
         qq.setFromAxisAngle(eje, azarG.sig() * Math.PI * 2); ss.set(e, e * (0.9 + azarG.sig() * 0.25), e);
         m4.compose(pp, qq, ss);
@@ -243,9 +345,13 @@ export function crearTerreno(escena, mundo, tx, calidad) {
       if (!pasto) return;
       for (let z = tz0; z < tz0 + lado; z++) for (let x = tx0; x < tx0 + lado; x++) {
         const l = pastoDe.get(z * N + x); if (!l) continue;
-        for (const i of l) pasto.setMatrixAt(i, cero);
+        for (const [im, i] of l) { im.setMatrixAt(i, cero); im.instanceMatrix.needsUpdate = true; }
       }
-      pasto.instanceMatrix.needsUpdate = true;
+    },
+    // distancia de dibujo del pasto: sólo los sectores cerca de lo que mira la cámara (de lejos no se distingue)
+    distanciaPasto(cx, cz, alcance) {
+      if (!pasto) return;
+      for (const im of pasto) { const c = im.userData.centro; im.visible = im.count > 0 && Math.hypot(c.x - cx, c.z - cz) < alcance + SECTOR * 0.7; }
     },
     actualizar(dt) {
       for (let k = cayendo.length - 1; k >= 0; k--) {

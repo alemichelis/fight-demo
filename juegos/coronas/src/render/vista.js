@@ -159,6 +159,12 @@ export class Vista {
     // lo que ya no está en el mundo: animación de muerte o derrumbe
     for (const [id, v] of this.visuales) if (!m.ents.has(id)) { this.visuales.delete(id); this.morir(v); }
     this.actualizarMuertes(dt);
+    // polen y polvo dorado flotando cerca de lo que se mira
+    if (Math.random() < dt * 9) {
+      const o = this.ctx.cam.objetivo, d = this.ctx.cam.distancia * 0.6;
+      const x = o.x + (Math.random() - 0.5) * d * 2, z = o.z + (Math.random() - 0.5) * d * 1.4;
+      if (this.m.visible(JUGADOR, x, z)) this.particulas.push({ x, y: this.alturaEn(x, z) + 0.4 + Math.random() * 2.5, z, vx: 0.25 + Math.random() * 0.2, vy: 0.05, vz: 0.1, vida: 6 + Math.random() * 4, t: 0, tam: 0.05, crece: 0, c: [1, 0.92, 0.65], a: 0.55, aditiva: true });
+    }
     this.actualizarFlechas(alfa);
     this.actualizarParticulas(dt);
     this.actualizarMarcas(dt);

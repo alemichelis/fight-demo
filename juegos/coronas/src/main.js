@@ -73,9 +73,8 @@ class Juego {
     this.terreno = crearTerreno(this.ctx.escena, this.mundo, tx, this.calidad);
     await paso("Trayendo modelos…", 0.62);
     await precargarGLB(f => { $("#carga .barra i").style.width = (62 + f * 12) + "%"; });
-    // olmos de verdad entre los árboles procedurales (menos con gráficos bajos: son más pesados)
-    const g = config.valor.graficos;
-    this.terreno.arbolesGLB(glbCargado(ARBOLES_GLB[0]), g.calidad === "baja" ? 0 : g.calidad === "media" ? 0.05 : 0.1);
+    // árboles GLB mezclados en el bosque (por ahora ninguno: los procedurales con tarjetas de follaje se ven mejor)
+    if (ARBOLES_GLB[0]) this.terreno.arbolesGLB(glbCargado(ARBOLES_GLB[0]), config.valor.graficos.calidad === "alta" ? 0.05 : 0);
     await paso("Pintando estandartes…", 0.75);
     this.retratos = crearRetratos([...Object.keys(UNIDADES), ...Object.keys(EDIFICIOS), "mina"], this.mundo.jugadores[JUGADOR].color, this.ctx.escena.environment);
     precargar([...Object.keys(EDIFICIOS), "mina"], this.mundo.jugadores.map(J => J.color));
@@ -170,7 +169,7 @@ class Juego {
     const etapa = (nombre, f) => { try { f(); } catch (e) { this.fallo(nombre, e); } };
     if (this.estado !== "cargando") etapa("controles", () => this.controles.actualizar(dt));
     etapa("vista", () => this.vista.actualizar(dt, this.estado === "jugando" ? this.acum / TICK : 1));
-    etapa("terreno", () => this.terreno.actualizar(dt));
+    etapa("terreno", () => { this.terreno.actualizar(dt); this.terreno.distanciaPasto(this.ctx.cam.objetivo.x, this.ctx.cam.objetivo.z, this.ctx.cam.distancia * 1.25); });
     etapa("niebla", () => this.niebla.actualizar(this.mundo.jugadores[JUGADOR].vis, dt, this.estado === "menu"));
     etapa("camara", () => this.ctx.ubicarCamara(this.alturaEn));
     if (this.estado === "jugando" || this.estado === "pausa") etapa("hud", () => this.hud.actualizar(this.sel));

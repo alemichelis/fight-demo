@@ -7,7 +7,8 @@ export const U = {
   uTiempo: { value: 0 },
   uNiebla: { value: null },
   uLado: { value: 1 },
-  uViento: { value: new THREE.Vector2(0.8, 0.45) }
+  uViento: { value: new THREE.Vector2(0.8, 0.45) },
+  uNubes: { value: 1 }          // intensidad de las sombras de nubes (0 = sin nubes, p. ej. en los retratos)
 };
 
 export function parchar(mat, clave, fn) {
@@ -38,10 +39,18 @@ export function conNiebla(mat) {
   if (mat.userData.parches?.some(p => p.clave === "niebla")) return mat;
   return parchar(mat, "niebla", sh => {
     conMundo(sh);
-    sh.uniforms.uNiebla = U.uNiebla; sh.uniforms.uLado = U.uLado;
+    sh.uniforms.uNiebla = U.uNiebla; sh.uniforms.uLado = U.uLado; sh.uniforms.uTiempo = U.uTiempo; sh.uniforms.uNubes = U.uNubes;
     sh.fragmentShader = sh.fragmentShader
-      .replace("#include <common>", "#include <common>\nuniform sampler2D uNiebla; uniform float uLado;")
+      .replace("#include <common>", `#include <common>
+        uniform sampler2D uNiebla; uniform float uLado, uTiempo, uNubes;
+        float hashN(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+        float ruidoN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+          return mix(mix(hashN(i), hashN(i + vec2(1.0, 0.0)), f.x), mix(hashN(i + vec2(0.0, 1.0)), hashN(i + vec2(1.0, 1.0)), f.x), f.y); }`)
       .replace("#include <opaque_fragment>", `#include <opaque_fragment>
+        { // sombras de nubes que cruzan el mapa con el viento
+          vec2 pn = vMundo.xz * 0.03 + uTiempo * vec2(0.018, 0.007);
+          float n = ruidoN(pn) * 0.65 + ruidoN(pn * 2.3 + 7.1) * 0.35;
+          gl_FragColor.rgb *= mix(1.0, 0.7, smoothstep(0.52, 0.74, n) * uNubes); }
         { float nv = texture2D(uNiebla, vMundo.xz / uLado).r;
           float luz = nv < 0.5 ? mix(0.035, 0.42, nv * 2.0) : mix(0.42, 1.0, (nv - 0.5) * 2.0);
           float gris = dot(gl_FragColor.rgb, vec3(0.299, 0.587, 0.114));

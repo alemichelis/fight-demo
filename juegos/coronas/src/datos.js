@@ -77,8 +77,8 @@ export const EDIFICIOS = {
     nombre: "Castillo", desc: "Corazón del reino: entrena peones y recibe el oro y la madera.",
     costo: { oro: 450, madera: 250 }, tiempo: 55, lado: 4,
     vida: 1600, armadura: 4, vision: 13, pobDa: 10, entrega: true, entrena: ["peon"], mejora: true,
-    // procedural en los tres niveles (el castillo de Laarne quedaba como una maqueta chata en la huella de 4×4)
-    modelo: { glb: null }
+    // castillo real (sin el foso del modelo), estirado en altura para que se lea desde la cámara y más grande en cada nivel
+    modelo: { glb: "/juegos/coronas/assets/modelos/castillo.glb", ocultar: ["Material.001"], escala: 1.45, estirarY: 1.9, escalaNivel: { 1: 1, 2: 1.12, 3: 1.24 } }
   },
   granja: {
     nombre: "Granja", desc: "Alimenta a tu gente: cada granja suma 6 de población.",
@@ -123,7 +123,7 @@ EDIFICIOS.muralla = {
 UNIDADES.peon.construye = Object.keys(EDIFICIOS);
 
 // árboles GLB que se mezclan en los bosques (fracción según la calidad gráfica, ver main.js)
-export const ARBOLES_GLB = ["/juegos/coronas/assets/modelos/arbol-olmo.glb"];
+export const ARBOLES_GLB = [];
 
 export const MINA = { nombre: "Mina de oro", lado: 3, oro: 9000, vision: 0, modelo: { glb: "/juegos/coronas/assets/modelos/mina.glb", escala: 1.12, material: { color: "#857563", metalness: 0, roughness: 0.92, sinBrillo: true } } };
 

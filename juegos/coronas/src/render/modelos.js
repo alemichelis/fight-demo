@@ -494,7 +494,7 @@ export async function precargarGLB(alAvanzar) {
 
 // Deja un GLB listo para el juego: piezas ocultas, sombras, niebla de guerra, escala a la huella (edificios) o a la
 // altura (unidades), apoyado en el suelo y centrado. A los edificios les agrega una bandera del color del jugador.
-function prepararGLB(gltf, def, M, esUnidad) {
+function prepararGLB(gltf, def, M, esUnidad, nivel = 1) {
   const o = SkeletonUtils.clone(gltf.scene);
   const ocultar = def.modelo.ocultar || [];
   const sobran = [];
@@ -518,7 +518,9 @@ function prepararGLB(gltf, def, M, esUnidad) {
   o.updateMatrixWorld(true);
   const caja = new THREE.Box3().setFromObject(o), tam = caja.getSize(new THREE.Vector3());
   const k = def.lado ? def.lado * 0.95 / Math.max(tam.x, tam.z) : (def.altura || 1) / tam.y;
-  o.scale.setScalar(k * (def.modelo.escala || 1));
+  // escala extra (puede pasarse de la huella, como los edificios de los RTS), por nivel, y estirado vertical
+  o.scale.setScalar(k * (def.modelo.escala || 1) * (def.modelo.escalaNivel?.[nivel] || 1));
+  o.scale.y *= def.modelo.estirarY || 1;
   o.rotation.y = def.modelo.giro || 0;
   o.updateMatrixWorld(true);
   const c2 = new THREE.Box3().setFromObject(o), centro = c2.getCenter(new THREE.Vector3());
@@ -547,12 +549,41 @@ function buscarHuesos(o) {
 // de la base. Los edificios (sin partes animadas) se arman una sola vez por tipo, color y nivel y después se clonan
 // compartiendo la geometría: construir o subir de nivel no vuelve a generar mallas.
 const plantillas = new Map();
+
+// Un edificio procedural son decenas de piezas: se fusionan en una malla por material (una llamada de dibujo por
+// material en lugar de una por pieza). Sólo para edificios, que no tienen partes que se animen por separado.
+function fusionarPorMaterial(g) {
+  g.updateMatrixWorld(true);
+  const porMat = new Map();
+  const res = new THREE.Group(), sueltas = [];
+  g.traverse(n => {
+    if (!n.isMesh) return;
+    // lo que ondea con el viento usa su posición local: queda como pieza aparte, con su transformación
+    if (n.material.userData.parches?.some(p => p.clave.startsWith("viento"))) { sueltas.push(n); return; }
+    let geo = n.geometry.index ? n.geometry.toNonIndexed() : n.geometry.clone();
+    geo.applyMatrix4(n.matrixWorld);
+    for (const k of Object.keys(geo.attributes)) if (!["position", "normal", "uv"].includes(k)) geo.deleteAttribute(k);
+    if (!geo.attributes.uv) geo.setAttribute("uv", new THREE.BufferAttribute(new Float32Array(geo.attributes.position.count * 2), 2));
+    let l = porMat.get(n.material); if (!l) porMat.set(n.material, l = []); l.push(geo);
+  });
+  for (const n of sueltas) {
+    const c = new THREE.Mesh(n.geometry, n.material);
+    n.matrixWorld.decompose(c.position, c.quaternion, c.scale);
+    c.castShadow = true; c.receiveShadow = true; res.add(c);
+  }
+  for (const [mat, geos] of porMat) {
+    const m = new THREE.Mesh(mergeGeometries(geos), mat);
+    m.castShadow = true; m.receiveShadow = true;
+    res.add(m);
+  }
+  return res;
+}
 function plantilla(tipo, M, nivel) {
   const clave = `${tipo}|${M.tela.color.getHexString()}|${nivel}`;
   let p = plantillas.get(clave);
   if (!p) {
     const def = EDIFICIOS[tipo] || MINA, ruta = rutaGLB(def, nivel), gltf = ruta && glbListos.get(ruta);
-    p = gltf ? prepararGLB(gltf, def, M, false) : FABRICAS[tipo](M, nivel);
+    p = gltf ? prepararGLB(gltf, def, M, false, nivel) : fusionarPorMaterial(FABRICAS[tipo](M, nivel));
     p.userData.glb = !!gltf;
     p.traverse(n => { if (n.geometry) n.geometry.userData.compartida = true; });
     plantillas.set(clave, p);

@@ -8,7 +8,7 @@ const OPC = {
   calidad: [["alta", "Alta"], ["media", "Media"], ["baja", "Baja"]],
   ratio: [[1, "100 %"], [1.5, "150 %"], [2, "200 %"]],
   sombras: [[0, "No"], [1024, "Bajas"], [2048, "Medias"], [4096, "Altas"]],
-  pasto: [[0, "No"], [2.5, "Poco"], [5, "Mucho"]]
+  pasto: [[0, "No"], [1.8, "Poco"], [3.5, "Mucho"]]
 };
 
 export function normalizarTecla(k) { return k.length === 1 ? k.toLowerCase() : k; }

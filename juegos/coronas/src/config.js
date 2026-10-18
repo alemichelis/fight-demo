@@ -4,8 +4,8 @@
 const CLAVE = "coronas-config";
 
 export const PRESETS = {
-  alta:  { ratio: 2,   sombras: 4096, gtao: true,  bloom: true,  smaa: true,  pasto: 5 },
-  media: { ratio: 1.5, sombras: 2048, gtao: false, bloom: true,  smaa: true,  pasto: 2.5 },
+  alta:  { ratio: 2,   sombras: 4096, gtao: true,  bloom: true,  smaa: true,  pasto: 3.5 },
+  media: { ratio: 1.5, sombras: 2048, gtao: false, bloom: true,  smaa: true,  pasto: 1.8 },
   baja:  { ratio: 1,   sombras: 1024, gtao: false, bloom: false, smaa: false, pasto: 0 }
 };
 

@@ -20,6 +20,7 @@ export function crearRetratos(tipos, color, entorno) {
   const nieblaReal = U.uNiebla.value, ladoReal = U.uLado.value;
   const blanco = new THREE.DataTexture(new Uint8Array([255]), 1, 1, THREE.RedFormat); blanco.needsUpdate = true;
   U.uNiebla.value = blanco;
+  const nubesReal = U.uNubes.value; U.uNubes.value = 0;
   const res = {};
   for (const tipo of tipos) {
     const { objeto, partes } = crearModelo(tipo, color);
@@ -37,7 +38,7 @@ export function crearRetratos(tipos, color, entorno) {
     escena.remove(objeto);
     objeto.traverse(n => { if (n.geometry && !n.geometry.userData.compartida) n.geometry.dispose(); });
   }
-  U.uNiebla.value = nieblaReal; U.uLado.value = ladoReal;
+  U.uNiebla.value = nieblaReal; U.uLado.value = ladoReal; U.uNubes.value = nubesReal;
   r.dispose();
   return res;
 }
