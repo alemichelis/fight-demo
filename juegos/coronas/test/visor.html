@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Visor de modelos · Coronas de Hierro</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #1b1f26; color: #ddd; font: 13px system-ui, sans-serif; overflow: hidden; }
+  canvas { display: block; width: 100%; height: 100%; }
+  #info { position: fixed; left: 10px; top: 10px; white-space: pre; background: rgba(0, 0, 0, .55); padding: 8px 10px; border-radius: 4px; }
+</style>
+<script type="importmap">
+{ "imports": { "three": "/node_modules/three/build/three.module.js", "three/addons/": "/node_modules/three/examples/jsm/" } }
+</script>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="info">Cargando…</div>
+<script type="module">
+// Muestra los GLB optimizados en fila, cada uno escalado a 2 unidades, con sus triángulos y animaciones.
+//   /juegos/coronas/test/visor.html?m=mina,castillo  (sin ?m muestra todos)
+import * as THREE from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
+
+const nombres = (new URLSearchParams(location.search).get("m") || "mina,castillo,granja,peon,soldado,muralla,arbol-arce,arbol-olmo").split(",");
+const r = new THREE.WebGLRenderer({ canvas: document.getElementById("c"), antialias: true });
+r.setSize(innerWidth, innerHeight); r.toneMapping = THREE.ACESFilmicToneMapping; r.outputColorSpace = THREE.SRGBColorSpace;
+const escena = new THREE.Scene(); escena.background = new THREE.Color("#2a2f38");
+escena.add(new THREE.HemisphereLight("#dfe8f5", "#4a4234", 1.6));
+const sol = new THREE.DirectionalLight("#fff", 2.2); sol.position.set(4, 8, 6); escena.add(sol);
+escena.add(new THREE.GridHelper(40, 40, "#555", "#3a3f48"));
+const cam = new THREE.PerspectiveCamera(32, innerWidth / innerHeight, 0.05, 500);
+const cargador = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
+const info = [], mixers = [];
+let listos = 0;
+nombres.forEach((n, i) => {
+  cargador.load(`/juegos/coronas/assets/modelos/${n}.glb`, g => {
+    const o = g.scene, caja = new THREE.Box3().setFromObject(o), tam = caja.getSize(new THREE.Vector3());
+    const k = 2 / Math.max(tam.x, tam.y, tam.z); o.scale.setScalar(k);
+    const c2 = new THREE.Box3().setFromObject(o), centro = c2.getCenter(new THREE.Vector3());
+    o.position.set((i - (nombres.length - 1) / 2) * 2.6 - centro.x, -c2.min.y, -centro.z);
+    escena.add(o);
+    let tris = 0; o.traverse(m => { if (m.isMesh) tris += (m.geometry.index ? m.geometry.index.count : m.geometry.attributes.position.count) / 3; });
+    if (g.animations.length) { const mx = new THREE.AnimationMixer(o); mx.clipAction(g.animations[0]).play(); mixers.push(mx); }
+    info[i] = `${n.padEnd(12)} ${Math.round(tris).toLocaleString().padStart(8)} tris  tamaño orig ${tam.x.toFixed(1)}×${tam.y.toFixed(1)}×${tam.z.toFixed(1)}  anim: ${g.animations.map(a => a.name + " " + a.duration.toFixed(1) + "s").join(", ") || "-"}`;
+    document.getElementById("info").textContent = info.filter(Boolean).join("\n");
+    if (++listos === nombres.length) window.__listo = true;
+  }, undefined, e => { info[i] = `${n}: ERROR ${e.message}`; if (++listos === nombres.length) window.__listo = true; });
+});
+const ancho = nombres.length * 2.6;
+cam.position.set(0, ancho * 0.28, ancho * 0.72); cam.lookAt(0, 0.8, 0);
+const reloj = new THREE.Clock();
+r.setAnimationLoop(() => { const dt = reloj.getDelta(); mixers.forEach(m => m.update(dt)); r.render(escena, cam); });
+</script>
+</body>
+</html>

@@ -35,6 +35,7 @@ function conMundo(sh) {
 
 // Niebla de guerra: sin explorar casi negro, explorado apagado y desaturado, visible normal.
 export function conNiebla(mat) {
+  if (mat.userData.parches?.some(p => p.clave === "niebla")) return mat;
   return parchar(mat, "niebla", sh => {
     conMundo(sh);
     sh.uniforms.uNiebla = U.uNiebla; sh.uniforms.uLado = U.uLado;

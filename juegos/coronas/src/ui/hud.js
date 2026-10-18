@@ -208,7 +208,7 @@ export class HUD {
     const tipo = ents[0].tipo;
     if (ents.every(e => e.clase === "edificio" && e.tipo === tipo)) {
       const e = ents[0], d = EDIFICIOS[tipo];
-      g[10] = { tipo: "girar", svg: ICONOS.girar, titulo: "Girar 90°", desc: `Cambia hacia dónde mira el edificio. También con ${nombreTecla(config.valor.teclas.girarEdificio)} o la rueda del mouse mientras lo ubicás.` };
+      g[10] = { tipo: "girar", svg: ICONOS.girar, titulo: "Girar 90°", desc: `Cambia hacia dónde mira el edificio. Al ubicarlo: apretá el clic izquierdo, arrastrá hacia donde querés la fachada y soltá (o tecla ${nombreTecla(config.valor.teclas.girarEdificio)}).` };
       if (!e.completo) { g[11] = { tipo: "cancelar", svg: ICONOS.cancelar, titulo: "Cancelar obra", desc: "Devuelve el 75 % de lo invertido." }; return g; }
       (d.entrena || []).forEach((t, i) => {
         const u = UNIDADES[t];

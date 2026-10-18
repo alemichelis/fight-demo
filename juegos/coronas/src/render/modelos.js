@@ -5,8 +5,9 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import * as SkeletonUtils from "three/addons/utils/SkeletonUtils.js";
+import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
-import { UNIDADES, EDIFICIOS, MINA } from "../datos.js";
+import { UNIDADES, EDIFICIOS, MINA, ARBOLES_GLB } from "../datos.js";
 import { conNiebla, conViento } from "./parches.js";
 import { copia } from "./texturas.js";
 
@@ -469,24 +470,95 @@ export function andamio(lado) {
 /* ================================================================ catálogo y GLB */
 
 const FABRICAS = { peon, soldado, arquero, caballero, catapulta, castillo, granja, cuartel, herreria, torre, barricada, muralla, mina };
-const cargador = new GLTFLoader();
-const glbs = new Map();
+const cargador = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
+const glbs = new Map(), glbListos = new Map();
 
 function cargarGLB(ruta) {
-  if (!glbs.has(ruta)) glbs.set(ruta, new Promise((ok, mal) => cargador.load(ruta, ok, undefined, mal)));
+  if (!glbs.has(ruta)) glbs.set(ruta, new Promise((ok, mal) => cargador.load(ruta, g => { glbListos.set(ruta, g); ok(g); }, undefined, mal)));
   return glbs.get(ruta);
 }
+export function glbCargado(ruta) { return glbListos.get(ruta) || null; }
+// ruta del GLB de un tipo (algunos tienen uno distinto por nivel, como el castillo)
+function rutaGLB(def, nivel) { return def?.modelo?.porNivel?.[nivel] || def?.modelo?.glb || null; }
 
-// Devuelve { objeto, partes, mixer?, acciones? }. «objeto» es un Group cuyo origen es el centro de la base.
-// Los edificios (sin partes animadas) se arman una sola vez por tipo, color y nivel y después se clonan compartiendo
-// la geometría: construir o subir de nivel no vuelve a generar mallas. Las unidades se arman cada vez porque sus
-// partes se animan por separado.
+// Carga de una vez todos los GLB del catálogo (la pantalla de carga espera acá, así nunca se ve el reemplazo)
+export async function precargarGLB(alAvanzar) {
+  const rutas = new Set(ARBOLES_GLB);
+  for (const d of [...Object.values(UNIDADES), ...Object.values(EDIFICIOS), MINA]) {
+    if (d.modelo?.glb) rutas.add(d.modelo.glb);
+    for (const r of Object.values(d.modelo?.porNivel || {})) rutas.add(r);
+  }
+  let n = 0;
+  await Promise.all([...rutas].map(r => cargarGLB(r).catch(e => console.warn("No pude cargar", r, e.message)).finally(() => alAvanzar?.(++n / rutas.size))));
+}
+
+// Deja un GLB listo para el juego: piezas ocultas, sombras, niebla de guerra, escala a la huella (edificios) o a la
+// altura (unidades), apoyado en el suelo y centrado. A los edificios les agrega una bandera del color del jugador.
+function prepararGLB(gltf, def, M, esUnidad) {
+  const o = SkeletonUtils.clone(gltf.scene);
+  const ocultar = def.modelo.ocultar || [];
+  const sobran = [];
+  o.traverse(n => {
+    if (!n.isMesh) return;
+    const mats = Array.isArray(n.material) ? n.material : [n.material];
+    if (mats.some(m => ocultar.includes(m.name))) { sobran.push(n); return; }
+    n.castShadow = n.receiveShadow = true;
+    // ajuste de material desde datos.js (p. ej. modelos que traen brillo propio o colores lavados)
+    const aj = def.modelo.material;
+    if (aj) mats.forEach(m => {
+      if (aj.color) m.color.set(aj.color);
+      if (aj.metalness != null) m.metalness = aj.metalness;
+      if (aj.roughness != null) m.roughness = aj.roughness;
+      if (aj.sinBrillo) { m.emissive?.set(0x000000); m.emissiveMap = null; m.emissiveIntensity = 0; }
+      m.needsUpdate = true;
+    });
+    mats.forEach(m => conNiebla(m));
+  });
+  sobran.forEach(n => n.parent.remove(n));
+  o.updateMatrixWorld(true);
+  const caja = new THREE.Box3().setFromObject(o), tam = caja.getSize(new THREE.Vector3());
+  const k = def.lado ? def.lado * 0.95 / Math.max(tam.x, tam.z) : (def.altura || 1) / tam.y;
+  o.scale.setScalar(k * (def.modelo.escala || 1));
+  o.rotation.y = def.modelo.giro || 0;
+  o.updateMatrixWorld(true);
+  const c2 = new THREE.Box3().setFromObject(o), centro = c2.getCenter(new THREE.Vector3());
+  o.position.set(-centro.x, -c2.min.y, -centro.z);
+  const g = new THREE.Group(); g.add(o);
+  if (!esUnidad && def.lado && !def.muro && def !== MINA) {
+    const alto = c2.max.y - c2.min.y;
+    bandera(g, M, def.lado / 2 - 0.2, 0, def.lado / 2 - 0.2, Math.max(0.8, Math.min(2.2, alto * 0.75)));
+  }
+  return g;
+}
+
+// huesos de un esqueleto tipo Mixamo, con su rotación de reposo guardada para animar sumando encima
+const HUESOS = { cadera: /Hips/, columna: /Spine1?_?\d*$/, brazoI: /LeftArm_?\d*$/, brazoD: /RightArm_?\d*$/, antebrazoI: /LeftForeArm/, antebrazoD: /RightForeArm/,
+  musloI: /LeftUpLeg/, musloD: /RightUpLeg/, piernaI: /LeftLeg_?\d*$/, piernaD: /RightLeg_?\d*$/ };
+function buscarHuesos(o) {
+  const h = {};
+  o.traverse(n => {
+    if (!n.isBone) return;
+    for (const [k, re] of Object.entries(HUESOS)) if (!h[k] && re.test(n.name)) { h[k] = n; n.userData.q0 = n.quaternion.clone(); }
+  });
+  return Object.keys(h).length >= 6 ? h : null;
+}
+
+// Devuelve { objeto, partes, procedural, huesos?, mixer?, acciones? }. «objeto» es un Group con origen en el centro
+// de la base. Los edificios (sin partes animadas) se arman una sola vez por tipo, color y nivel y después se clonan
+// compartiendo la geometría: construir o subir de nivel no vuelve a generar mallas.
 const plantillas = new Map();
 function plantilla(tipo, M, nivel) {
   const clave = `${tipo}|${M.tela.color.getHexString()}|${nivel}`;
   let p = plantillas.get(clave);
-  if (!p) { p = FABRICAS[tipo](M, nivel); p.traverse(n => { if (n.geometry) n.geometry.userData.compartida = true; }); plantillas.set(clave, p); }
-  return p.clone();
+  if (!p) {
+    const def = EDIFICIOS[tipo] || MINA, ruta = rutaGLB(def, nivel), gltf = ruta && glbListos.get(ruta);
+    p = gltf ? prepararGLB(gltf, def, M, false) : FABRICAS[tipo](M, nivel);
+    p.userData.glb = !!gltf;
+    p.traverse(n => { if (n.geometry) n.geometry.userData.compartida = true; });
+    plantillas.set(clave, p);
+  }
+  const c = p.clone(); c.userData.glb = p.userData.glb;
+  return c;
 }
 export function precargar(tipos, colores) {
   for (const c of colores) for (const t of tipos) for (const n of t === "castillo" ? [1, 2, 3] : [1]) plantilla(t, equipo(c), n);
@@ -496,34 +568,40 @@ export function crearModelo(tipo, color, nivel = 1) {
   const def = UNIDADES[tipo] || EDIFICIOS[tipo] || (tipo === "mina" ? MINA : null);
   const M = equipo(color || "#999999");
   const raiz = new THREE.Group();
-  const proc = UNIDADES[tipo] ? FABRICAS[tipo](M, nivel) : plantilla(tipo, M, nivel);
-  raiz.add(proc);
-  const res = { objeto: raiz, partes: proc.userData.partes || {}, procedural: true };
-  const glb = def?.modelo?.glb;
-  if (glb) {
-    cargarGLB(glb).then(gltf => {
-      const o = SkeletonUtils.clone(gltf.scene);
-      o.traverse(n => { if (n.isMesh) { n.castShadow = n.receiveShadow = true; if (n.material) conNiebla(n.material); } });
-      const caja = new THREE.Box3().setFromObject(o), tam = caja.getSize(new THREE.Vector3());
-      // escala automática a la huella o la altura de la unidad, salvo que datos.js indique otra
-      const objetivo = def.lado ? def.lado * 0.95 / Math.max(tam.x, tam.z) : (def.altura || 1) / tam.y;
-      o.scale.setScalar(objetivo * (def.modelo.escala || 1));
-      const c2 = new THREE.Box3().setFromObject(o), centro = c2.getCenter(new THREE.Vector3());
-      o.position.set(-centro.x, -c2.min.y, -centro.z);
-      raiz.remove(proc); raiz.add(o);
-      res.procedural = false; res.partes = {};
-      if (gltf.animations?.length) {
-        res.mixer = new THREE.AnimationMixer(o);
-        const buscar = (...claves) => gltf.animations.find(a => claves.some(k => a.name.toLowerCase().includes(k)));
-        res.acciones = {};
-        for (const [estado, claves] of Object.entries({ quieto: ["idle", "quieto"], camina: ["walk", "run", "camina"], ataca: ["attack", "ataca", "slash"], trabaja: ["work", "chop", "mine", "trabaja"], muere: ["death", "die", "muere"] })) {
-          const clip = buscar(...claves); if (clip) res.acciones[estado] = res.mixer.clipAction(clip);
-        }
-        res.acciones.quieto?.play();
-      }
-    }).catch(e => console.warn("No pude cargar", glb, e.message));
+  if (!UNIDADES[tipo]) {
+    const proc = plantilla(tipo, M, nivel);
+    raiz.add(proc);
+    return { objeto: raiz, partes: proc.userData.partes || {}, procedural: !proc.userData.glb };
   }
-  return res;
+  const ruta = rutaGLB(def, nivel), gltf = ruta && glbListos.get(ruta);
+  if (gltf) {
+    const g = prepararGLB(gltf, def, M, true);
+    raiz.add(g);
+    const res = { objeto: raiz, partes: {}, procedural: false, huesos: def.modelo.huesos ? buscarHuesos(g) : null };
+    if (def.recolecta) {
+      const alto = def.altura || 1;
+      const oro = new THREE.Group(); oro.add(esfera(0.11, MAT.cuero, 0, 0, 0, 10, 8)); oro.add(esfera(0.05, MAT.oro, 0.02, 0.09, 0.03, 8, 6));
+      oro.position.set(0, alto * 0.62, -0.2); oro.visible = false; raiz.add(oro);
+      const lena = new THREE.Group();
+      for (let i = 0; i < 3; i++) { const t = cil(0.045, 0.045, 0.42, 7, MAT.maderaOscura, (i - 1) * 0.08, 0, i === 1 ? 0.05 : 0); t.rotation.z = Math.PI / 2; lena.add(t); }
+      lena.position.set(0, alto * 0.66, -0.19); lena.visible = false; raiz.add(lena);
+      res.partes = { cargaOro: oro, cargaMadera: lena };
+    }
+    const clips = (gltf.animations || []).filter(a => a.duration > 0.05);      // un clip de 0 s es sólo la pose de origen
+    if (clips.length) {
+      res.mixer = new THREE.AnimationMixer(g);
+      const buscar = (...claves) => clips.find(a => claves.some(k => a.name.toLowerCase().includes(k)));
+      res.acciones = {};
+      for (const [estado, claves] of Object.entries({ quieto: ["idle", "quieto"], camina: ["walk", "run", "camina"], ataca: ["attack", "ataca", "slash"], trabaja: ["work", "chop", "mine", "trabaja"], muere: ["death", "die", "muere"] })) {
+        const clip = buscar(...claves); if (clip) res.acciones[estado] = res.mixer.clipAction(clip);
+      }
+      res.acciones.quieto?.play();
+    }
+    return res;
+  }
+  const proc = FABRICAS[tipo](M, nivel);
+  raiz.add(proc);
+  return { objeto: raiz, partes: proc.userData.partes || {}, procedural: true };
 }
 
 export { equipo as materialesDeEquipo };

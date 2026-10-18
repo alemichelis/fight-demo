@@ -125,7 +125,7 @@ export function crearTerreno(escena, mundo, tx, calidad) {
     p.set(px, mapa.alturaEn(px, pz) - 0.05, pz); q.setFromAxisAngle(eje, azar.sig() * Math.PI * 2); s.set(k, k * (0.9 + azar.sig() * 0.3), k);
     m.setMatrixAt(m.count, mtx.compose(p, q, s));
     m.setColorAt(m.count, col.setHSL(0.27 + (azar.sig() - 0.5) * 0.06, 0.35 + azar.sig() * 0.2, 0.42 + azar.sig() * 0.16));
-    arbolDe.set(i, [m, m.count]); m.count++;
+    arbolDe.set(i, [[m, m.count]]); m.count++;
   }
   for (const m of especies) { m.instanceMatrix.needsUpdate = true; if (m.instanceColor) m.instanceColor.needsUpdate = true; m.computeBoundingSphere(); }
 
@@ -198,8 +198,45 @@ export function crearTerreno(escena, mundo, tx, calidad) {
     talar(x, z) {
       const r = arbolDe.get(z * N + x); if (!r) return;
       arbolDe.delete(z * N + x);
-      const m0 = new THREE.Matrix4(); r[0].getMatrixAt(r[1], m0);
-      cayendo.push({ malla: r[0], i: r[1], m0, t: 0 });
+      for (const [malla, i] of r) { const m0 = new THREE.Matrix4(); malla.getMatrixAt(i, m0); cayendo.push({ malla, i, m0, t: 0 }); }
+    },
+
+    // Árboles GLB mezclados en el bosque: reemplazan una fracción de los procedurales (siempre los mismos, por la
+    // semilla). Cada pieza del modelo (tronco, hojas) es un InstancedMesh con la transformación de la pieza ya
+    // aplicada a la geometría, así todas comparten la matriz de la instancia y talar las hace caer juntas.
+    arbolesGLB(gltf, fraccion) {
+      if (!gltf || fraccion <= 0) return;
+      const raiz = gltf.scene; raiz.updateMatrixWorld(true);
+      const caja = new THREE.Box3().setFromObject(raiz), tam = caja.getSize(new THREE.Vector3()), centro = caja.getCenter(new THREE.Vector3());
+      const escala = 3.3 / tam.y;
+      const ajuste = new THREE.Matrix4().makeScale(escala, escala, escala).multiply(new THREE.Matrix4().makeTranslation(-centro.x, -caja.min.y, -centro.z));
+      const elegidos = [];
+      for (const [i, r] of arbolDe) if (r.length === 1 && (((i * 2654435761) >>> 0) % 1000) / 1000 < fraccion) elegidos.push(i);
+      if (!elegidos.length) return;
+      const piezas = [];
+      raiz.traverse(n => {
+        if (!n.isMesh) return;
+        const geo = n.geometry.clone().applyMatrix4(new THREE.Matrix4().multiplyMatrices(ajuste, n.matrixWorld));
+        const mat = n.material.clone();
+        const hojas = mat.transparent || mat.alphaTest > 0 || /leaf|hoja|foli/i.test(mat.name);
+        if (hojas) { mat.transparent = false; mat.alphaTest = Math.max(mat.alphaTest || 0, 0.45); mat.side = THREE.DoubleSide; conViento(mat, 0.06, 3.3); }
+        conNiebla(mat);
+        const im = new THREE.InstancedMesh(geo, mat, elegidos.length);
+        im.castShadow = true; im.receiveShadow = true; im.count = elegidos.length;
+        grupo.add(im); piezas.push(im);
+      });
+      const azarG = crearAzar(mapa.semilla + 91), m4 = new THREE.Matrix4(), qq = new THREE.Quaternion(), ss = new THREE.Vector3(), pp = new THREE.Vector3();
+      elegidos.forEach((i, k) => {
+        const [[mProc, iProc]] = arbolDe.get(i);
+        mProc.getMatrixAt(iProc, m4); m4.decompose(pp, qq, ss);
+        mProc.setMatrixAt(iProc, cero); mProc.instanceMatrix.needsUpdate = true;
+        const e = 0.8 + azarG.sig() * 0.45;
+        qq.setFromAxisAngle(eje, azarG.sig() * Math.PI * 2); ss.set(e, e * (0.9 + azarG.sig() * 0.25), e);
+        m4.compose(pp, qq, ss);
+        for (const im of piezas) im.setMatrixAt(k, m4);
+        arbolDe.set(i, piezas.map(im => [im, k]));
+      });
+      for (const im of piezas) { im.instanceMatrix.needsUpdate = true; im.computeBoundingSphere(); }
     },
     // lo que queda bajo un edificio nuevo
     despejar(tx0, tz0, lado) {

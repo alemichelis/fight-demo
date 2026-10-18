@@ -24,7 +24,7 @@ export class Controles {
     lienzo.addEventListener("pointerdown", e => this.abajo(e));
     addEventListener("pointermove", e => this.mover(e));
     addEventListener("pointerup", e => this.arriba(e));
-    lienzo.addEventListener("wheel", e => { e.preventDefault(); if (this.j.modo() === "construir") { this.j.girarEdificio(e.deltaY > 0 ? 1 : -1); return; } const c = this.j.ctx.cam; c.distanciaObj = THREE.MathUtils.clamp(c.distanciaObj * (e.deltaY > 0 ? 1.12 : 0.89), c.min, c.max); }, { passive: false });
+    lienzo.addEventListener("wheel", e => { e.preventDefault(); const c = this.j.ctx.cam; c.distanciaObj = THREE.MathUtils.clamp(c.distanciaObj * (e.deltaY > 0 ? 1.12 : 0.89), c.min, c.max); }, { passive: false });
     document.addEventListener("pointerleave", () => this.mouse.dentro = false);
     document.addEventListener("pointerenter", () => this.mouse.dentro = true);
     addEventListener("blur", () => { this.teclas.clear(); this.mouse.dentro = false; });
@@ -88,6 +88,7 @@ export class Controles {
 
   arriba(e) {
     if (e.button === 1) { this.medio = null; return; }
+    if (e.button === 0 && this.j.colocando) { const p = this.suelo(e.clientX, e.clientY); this.j.soltarEdificio(e.shiftKey); return; }
     if (e.button === 0 && this.j.lineaMuro) { const p = this.suelo(e.clientX, e.clientY); if (p) this.j.finLinea(p.x, p.z, e.shiftKey); else this.j.lineaMuro = null; return; }
     if (e.button !== 0 || !this.arrastre) return;
     const a = this.arrastre; this.arrastre = null; this.cuadro.hidden = true;

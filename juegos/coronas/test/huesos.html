@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Prueba de huesos · Coronas de Hierro</title>
+<style>html, body { margin: 0; height: 100%; background: #2a2f38; overflow: hidden; } canvas { display: block; width: 100%; height: 100%; }</style>
+<script type="importmap">
+{ "imports": { "three": "/node_modules/three/build/three.module.js", "three/addons/": "/node_modules/three/examples/jsm/" } }
+</script>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script type="module">
+// Tres copias del peón con los brazos girados sobre los ejes locales x, y, z: para ver cuál baja los brazos.
+//   ?ang=1.2&hueso=Arm   (también sirve para piernas: ?hueso=UpLeg)
+import * as THREE from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
+import * as SkeletonUtils from "three/addons/utils/SkeletonUtils.js";
+const q = new URLSearchParams(location.search), ang = Number(q.get("ang") || 1.2), hueso = q.get("hueso") || "Arm";
+const r = new THREE.WebGLRenderer({ canvas: document.getElementById("c"), antialias: true });
+r.setSize(innerWidth, innerHeight); r.outputColorSpace = THREE.SRGBColorSpace;
+const escena = new THREE.Scene(); escena.background = new THREE.Color("#2a2f38");
+escena.add(new THREE.HemisphereLight("#fff", "#444", 2.4));
+const cam = new THREE.PerspectiveCamera(30, innerWidth / innerHeight, 0.01, 100);
+cam.position.set(0, 1.0, 6.5); cam.lookAt(0, 0.9, 0);
+new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).load("/juegos/coronas/assets/modelos/peon.glb", g => {
+  const variante = q.get("variante");
+  if (variante) {
+    // de costado: tres formas de balancear el brazo ya bajado; brazo izquierdo +0,7 (adelante esperado)
+    [["despues", "z"], ["antes", "z"], ["despues", "y"]].forEach(([orden, eje], i) => {
+      const o = SkeletonUtils.clone(g.scene);
+      const caja = new THREE.Box3().setFromObject(o); o.scale.setScalar(1.8 / caja.getSize(new THREE.Vector3()).y);
+      o.position.x = (i - 1) * 2.2; o.rotation.y = Math.PI / 2; escena.add(o);
+      const v = new THREE.Vector3(eje === "x" ? 1 : 0, eje === "y" ? 1 : 0, eje === "z" ? 1 : 0), X = new THREE.Vector3(1, 0, 0);
+      o.traverse(n => {
+        if (!/LeftArm_?\d*$/.test(n.name)) return;
+        const baja = new THREE.Quaternion().setFromAxisAngle(X, 1.25), sw = new THREE.Quaternion().setFromAxisAngle(v, 0.7);
+        if (orden === "despues") n.quaternion.multiply(baja).multiply(sw); else n.quaternion.multiply(sw).multiply(baja);
+      });
+    });
+    r.render(escena, cam); window.__listo = true; return;
+  }
+  ["x", "y", "z"].forEach((eje, i) => {
+    const o = SkeletonUtils.clone(g.scene);
+    const caja = new THREE.Box3().setFromObject(o); o.scale.setScalar(1.8 / caja.getSize(new THREE.Vector3()).y);
+    o.position.x = (i - 1) * 2.2; escena.add(o);
+    const v = new THREE.Vector3(eje === "x" ? 1 : 0, eje === "y" ? 1 : 0, eje === "z" ? 1 : 0);
+    // base: brazos bajos (eje x, mismo signo en los dos lados)
+    o.traverse(n => { if (/(Left|Right)Arm_?\d*$/.test(n.name)) n.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Number(q.get("baja") || 0))); });
+    o.traverse(n => {
+      if (!n.isBone) return;
+      const izq = new RegExp("Left" + hueso + "_?\\d*$").test(n.name), der = new RegExp("Right" + hueso + "_?\\d*$").test(n.name);
+      if (izq) n.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(v, ang));
+      if (der) n.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(v, q.get("igual") ? ang : -ang));
+    });
+  });
+  r.render(escena, cam); window.__listo = true;
+});
+</script>
+</body>
+</html>

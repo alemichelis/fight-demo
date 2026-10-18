@@ -19,14 +19,14 @@ export const UNIDADES = {
     ataque: { danio: 4, rango: 0.45, cadencia: 1.3 },
     recolecta: { carga: 10, tiempoOro: 2.2, tiempoMadera: 3.4 },
     construye: ["granja", "cuartel", "torre", "castillo"],
-    modelo: { glb: null, escala: 1 }
+    modelo: { glb: "/juegos/coronas/assets/modelos/peon.glb", huesos: true }
   },
   soldado: {
     nombre: "Soldado", desc: "Infantería pesada con espada y escudo. Aguanta en primera línea.",
     costo: { oro: 125, madera: 0 }, pob: 1, tiempo: 18,
     vida: 190, armadura: 3, velocidad: 2.3, radio: 0.38, vision: 7, altura: 1.05,
     ataque: { danio: 13, rango: 0.55, cadencia: 1.1 },
-    modelo: { glb: null, escala: 1 }
+    modelo: { glb: "/juegos/coronas/assets/modelos/soldado.glb" }
   },
   arquero: {
     nombre: "Arquera", desc: "Ataca a distancia. Frágil de cerca: protegela detrás de los soldados.",
@@ -77,13 +77,14 @@ export const EDIFICIOS = {
     nombre: "Castillo", desc: "Corazón del reino: entrena peones y recibe el oro y la madera.",
     costo: { oro: 450, madera: 250 }, tiempo: 55, lado: 4,
     vida: 1600, armadura: 4, vision: 13, pobDa: 10, entrega: true, entrena: ["peon"], mejora: true,
-    modelo: { glb: null, escala: 1 }
+    // procedural en los tres niveles (el castillo de Laarne quedaba como una maqueta chata en la huella de 4×4)
+    modelo: { glb: null }
   },
   granja: {
     nombre: "Granja", desc: "Alimenta a tu gente: cada granja suma 6 de población.",
     costo: { oro: 80, madera: 30 }, tiempo: 14, lado: 2,
     vida: 320, armadura: 1, vision: 4, pobDa: 6,
-    modelo: { glb: null, escala: 1 }
+    modelo: { glb: "/juegos/coronas/assets/modelos/granja.glb" }
   },
   cuartel: {
     nombre: "Cuartel", desc: "Entrena soldados, arqueras y, con herrería, caballeros.",
@@ -115,13 +116,16 @@ EDIFICIOS.muralla = {
   nombre: "Muralla de piedra", desc: "Muro de piedra, mucho más duro que la barricada. Arrastrá para levantar una línea.",
   costo: { oro: 18, madera: 4 }, tiempo: 7, lado: 1, muro: true, nivel: 2,
   vida: 700, armadura: 8, vision: 2,
-  modelo: { glb: null, escala: 1 }
+  modelo: { glb: "/juegos/coronas/assets/modelos/muralla.glb" }
 };
 
 // los peones pueden levantar todos los edificios
 UNIDADES.peon.construye = Object.keys(EDIFICIOS);
 
-export const MINA = { nombre: "Mina de oro", lado: 3, oro: 9000, vision: 0, modelo: { glb: null, escala: 1 } };
+// árboles GLB que se mezclan en los bosques (fracción según la calidad gráfica, ver main.js)
+export const ARBOLES_GLB = ["/juegos/coronas/assets/modelos/arbol-olmo.glb"];
+
+export const MINA = { nombre: "Mina de oro", lado: 3, oro: 9000, vision: 0, modelo: { glb: "/juegos/coronas/assets/modelos/mina.glb", escala: 1.12, material: { color: "#857563", metalness: 0, roughness: 0.92, sinBrillo: true } } };
 
 
 export const DIFICULTADES = {

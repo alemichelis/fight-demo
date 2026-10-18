@@ -3,14 +3,14 @@
 // traduce gestos en órdenes. Este archivo los conecta y maneja los menús.
 
 import * as THREE from "three";
-import { TICK, UNIDADES, EDIFICIOS, DIFICULTADES, NIVELES, INVESTIGACIONES } from "./datos.js";
+import { TICK, UNIDADES, EDIFICIOS, DIFICULTADES, NIVELES, INVESTIGACIONES, ARBOLES_GLB } from "./datos.js";
 import { Mundo } from "./sim/mundo.js";
 import { IA } from "./sim/ia.js";
 import { crearEscena } from "./render/escena.js";
 import { config, PRESETS, nombreTecla } from "./config.js";
 import { Configuracion } from "./ui/configuracion.js";
 import { crearTexturas } from "./render/texturas.js";
-import { prepararMateriales, precargar } from "./render/modelos.js";
+import { prepararMateriales, precargar, precargarGLB, glbCargado } from "./render/modelos.js";
 import { crearTerreno } from "./render/terreno.js";
 import { Niebla, U } from "./render/parches.js";
 import { Vista } from "./render/vista.js";
@@ -71,6 +71,11 @@ class Juego {
     this.niebla = new Niebla(this.mundo.N);
     await paso("Plantando bosques…", 0.55);
     this.terreno = crearTerreno(this.ctx.escena, this.mundo, tx, this.calidad);
+    await paso("Trayendo modelos…", 0.62);
+    await precargarGLB(f => { $("#carga .barra i").style.width = (62 + f * 12) + "%"; });
+    // olmos de verdad entre los árboles procedurales (menos con gráficos bajos: son más pesados)
+    const g = config.valor.graficos;
+    this.terreno.arbolesGLB(glbCargado(ARBOLES_GLB[0]), g.calidad === "baja" ? 0 : g.calidad === "media" ? 0.05 : 0.1);
     await paso("Pintando estandartes…", 0.75);
     this.retratos = crearRetratos([...Object.keys(UNIDADES), ...Object.keys(EDIFICIOS), "mina"], this.mundo.jugadores[JUGADOR].color, this.ctx.escena.environment);
     precargar([...Object.keys(EDIFICIOS), "mina"], this.mundo.jugadores.map(J => J.color));
@@ -162,15 +167,24 @@ class Juego {
     U.uTiempo.value += dt;
     this.sel = this.sel.filter(id => this.mundo.ents.has(id));
     this.vista.seleccion = new Set(this.sel);
-    if (this.estado !== "cargando") this.controles.actualizar(dt);
-    this.vista.actualizar(dt, this.estado === "jugando" ? this.acum / TICK : 1);
-    this.terreno.actualizar(dt);
-    this.niebla.actualizar(this.mundo.jugadores[JUGADOR].vis, dt, this.estado === "menu");
-    this.ctx.ubicarCamara(this.alturaEn);
-    if (this.estado === "jugando" || this.estado === "pausa") this.hud.actualizar(this.sel);
+    const etapa = (nombre, f) => { try { f(); } catch (e) { this.fallo(nombre, e); } };
+    if (this.estado !== "cargando") etapa("controles", () => this.controles.actualizar(dt));
+    etapa("vista", () => this.vista.actualizar(dt, this.estado === "jugando" ? this.acum / TICK : 1));
+    etapa("terreno", () => this.terreno.actualizar(dt));
+    etapa("niebla", () => this.niebla.actualizar(this.mundo.jugadores[JUGADOR].vis, dt, this.estado === "menu"));
+    etapa("camara", () => this.ctx.ubicarCamara(this.alturaEn));
+    if (this.estado === "jugando" || this.estado === "pausa") etapa("hud", () => this.hud.actualizar(this.sel));
     const antesDibujo = performance.now();
-    this.ctx.dibujar();
+    etapa("dibujo", () => this.ctx.dibujar());
     this.ultimoCuadro = { logica: Math.round(antesDibujo - inicio), dibujo: Math.round(performance.now() - antesDibujo) };
+  }
+
+  // un error en una etapa del cuadro no puede congelar el juego: se avisa una vez por etapa en la consola
+  fallo(etapa, e) {
+    this.fallas ||= new Set();
+    if (this.fallas.has(etapa)) return;
+    this.fallas.add(etapa);
+    console.error(`[Coronas] falló «${etapa}» (el juego sigue):`, e);
   }
 
   procesarEventos(evs) {
@@ -208,7 +222,12 @@ class Juego {
     return r;
   }
   modo() { return this.modoActual?.tipo || null; }
-  cancelarModo() { this.modoActual = null; this.lineaMuro = null; this.vista.mostrarFantasma(null); this.vista.mostrarLinea([]); document.body.dataset.modo = ""; }
+  soltarEdificio(shift) {
+    const m = this.modoActual; if (!m || !this.colocando) return;
+    m.soltando = true;
+    try { this.clicModo(this.colocando.x, this.colocando.z, shift); } finally { if (this.modoActual) this.modoActual.soltando = false; this.colocando = null; }
+  }
+  cancelarModo() { this.colocando = null; this.modoActual = null; this.lineaMuro = null; this.vista.mostrarFantasma(null); this.vista.mostrarLinea([]); document.body.dataset.modo = ""; }
 
   /* ---------------------------------------------------------------- muros en línea (barricadas y murallas) */
 
@@ -371,8 +390,14 @@ class Juego {
       this.vista.marca(x, z, "ataque"); sonar("ataque");
     } else if (m.tipo === "reunion") { this.ponerReunion(x, z); }
     else if (m.tipo === "construir" && EDIFICIOS[m.edificio].muro) { this.lineaMuro = { x, z }; return; }
+    else if (m.tipo === "construir" && !m.soltando) {
+      // se fija el lugar; mientras se arrastra, el edificio gira hacia el mouse; al soltar se ordena
+      const lado = EDIFICIOS[m.edificio].lado;
+      this.colocando = { x, z, tx: Math.floor(x - lado / 2 + 0.5), tz: Math.floor(z - lado / 2 + 0.5) };
+      return;
+    }
     else if (m.tipo === "construir") {
-      const lado = EDIFICIOS[m.edificio].lado, tx = Math.floor(x - lado / 2 + 0.5), tz = Math.floor(z - lado / 2 + 0.5);
+      const lado = EDIFICIOS[m.edificio].lado, tx = this.colocando.tx, tz = this.colocando.tz;
       const peones = propias.filter(e => e.clase === "unidad" && UNIDADES[e.tipo].construye);
       // va el peón más cercano; con Shift la obra se encola para el mismo peón y se sigue ubicando
       peones.sort((a, b) => Math.hypot(a.x - x, a.z - z) - Math.hypot(b.x - x, b.z - z));
@@ -432,6 +457,15 @@ class Juego {
     if (this.lineaMuro && this.esMuro()) {
       this.vista.mostrarFantasma(null);
       this.vista.mostrarLinea(this.casillasLinea(this.lineaMuro.x, this.lineaMuro.z, p.x, p.z, this.modoActual.edificio));
+      return;
+    }
+    if (this.modoActual?.tipo === "construir" && this.colocando) {
+      // arrastrando: la fachada mira hacia el puntero (de a cuartos de vuelta)
+      const c = this.colocando, lado = EDIFICIOS[this.modoActual.edificio].lado;
+      const cx = c.tx + lado / 2, cz = c.tz + lado / 2, dx = p.x - cx, dz = p.z - cz;
+      if (Math.hypot(dx, dz) > 0.8) this.modoActual.rot = ((Math.round(Math.atan2(dx, dz) / (Math.PI / 2)) % 4) + 4) % 4;
+      this.vista.mostrarFantasma(this.modoActual.edificio, c.tx, c.tz, !this.mundo.motivoNoConstruir(JUGADOR, this.modoActual.edificio, c.tx, c.tz), this.modoActual.rot || 0);
+      this.vista.hover = null;
       return;
     }
     if (this.modoActual?.tipo === "construir") {

@@ -151,7 +151,7 @@ export class Vista {
         const ancho = e.clase === "unidad" ? 0.75 + e.radio : 1.2 + e.lado * 0.45;
         this.barras.poner(v.obj.position.x, v.obj.position.y + alto, v.obj.position.z, f, ancho, 0.1, 0, c[0], c[1], c[2], 0.95);
         if (e.clase === "edificio" && !e.completo) this.barras.poner(v.obj.position.x, v.obj.position.y + alto - 0.16, v.obj.position.z, e.progreso, ancho, 0.06, 0, 0.95, 0.8, 0.35, 0.95);
-        else if (e.clase === "edificio" && e.cola?.length && e.dueño === JUGADOR) this.barras.poner(v.obj.position.x, v.obj.position.y + alto - 0.16, v.obj.position.z, e.colaT / UNIDADES[e.cola[0]].tiempo, ancho, 0.06, 0, 0.45, 0.75, 1, 0.95);
+        else if (e.clase === "edificio" && e.cola?.length && e.dueño === JUGADOR) this.barras.poner(v.obj.position.x, v.obj.position.y + alto - 0.16, v.obj.position.z, e.colaT / this.m.itemCola(e, e.cola[0]).tiempo, ancho, 0.06, 0, 0.45, 0.75, 1, 0.95);
       }
     }
     for (let k = ia; k < this.anillos.length; k++) this.anillos[k].visible = false;
@@ -182,7 +182,16 @@ export class Vista {
     for (const [k, p] of Object.entries(mod.partes)) if (p?.isObject3D) v.base.set(k, p.rotation.clone());
     obj.position.set(e.x, this.alturaEn(e.x, e.z), e.z);
     obj.rotation.y = e.ang;
-    if (e.clase === "unidad") obj.scale.setScalar(ESCALA_UNIDAD);
+    if (e.clase === "unidad") {
+      obj.scale.setScalar(ESCALA_UNIDAD);
+      this.discos ||= new Map();
+      let mat = this.discos.get(e.dueño);
+      if (!mat) { mat = new THREE.MeshBasicMaterial({ color: this.m.jugadores[e.dueño].color, transparent: true, opacity: 0.4, depthWrite: false }); this.discos.set(e.dueño, mat); }
+      this.discoGeo ||= new THREE.RingGeometry(0.62, 0.86, 28).rotateX(-Math.PI / 2);
+      const d = new THREE.Mesh(this.discoGeo, mat); d.scale.setScalar(e.radio / ESCALA_UNIDAD * 1.25); d.position.y = 0.03; d.renderOrder = 1;
+      this.discoGeo.userData.compartida = true;
+      obj.add(d);
+    }
     if (e.clase === "edificio" || e.clase === "mina") {
       obj.position.y = this.alturaBase(e);
       if (e.clase === "edificio") obj.rotation.y = (e.dueño === 1 ? Math.PI : 0) + (e.rot || 0) * Math.PI / 2;     // la fachada mira hacia el centro del mapa, más el giro elegido
@@ -192,7 +201,8 @@ export class Vista {
         // la boca de la cueva mira hacia el castillo inicial más cercano
         let mejor = null, md = Infinity;
         for (const b of this.m.mapa.bases) { const d = Math.hypot(b.x + 2 - e.x, b.z + 2 - e.z); if (d < md) { md = d; mejor = b; } }
-        if (mejor) obj.rotation.y = Math.atan2(mejor.x + 2 - e.x, mejor.z + 2 - e.z);
+        // entre el castillo y la cámara (que mira desde el sur): así se ve la boca y los peones entran de frente
+        if (mejor) { const dx = mejor.x + 2 - e.x, dz = mejor.z + 2 - e.z, d = Math.hypot(dx, dz) || 1; obj.rotation.y = Math.atan2(dx / d, dz / d + 1); }
       }
       this.terreno.despejar(e.tx, e.tz, e.lado);
       if (e.clase === "edificio" && !e.completo) { v.andamio = andamio(e.lado); obj.add(v.andamio); }
@@ -228,6 +238,7 @@ export class Vista {
     const P = v.mod.partes;
     if (P.cargaOro) { P.cargaOro.visible = e.carga?.tipo === "oro"; P.cargaMadera.visible = e.carga?.tipo === "madera"; }
     if (v.mod.mixer) { this.animarGLB(v, e, dt); return; }
+    if (!v.mod.procedural) { this.animarSinClips(e, v, dt); return; }
     if (P.ruedas) { this.animarCatapulta(e, v, P, dt); return; }
     const b = (k, eje) => v.base.get(k)?.[eje] || 0;
     const vel = UNIDADES[e.tipo].velocidad;
@@ -271,6 +282,44 @@ export class Vista {
   }
 
   /* ---------------------------------------------------------------- edificios */
+
+  // GLB sin animaciones: con esqueleto tipo Mixamo se mueven brazos y piernas por hueso; sin esqueleto, el cuerpo entero
+  // se balancea al caminar y se lanza hacia adelante al golpear.
+  animarSinClips(e, v, dt) {
+    const vel = UNIDADES[e.tipo].velocidad;
+    if (e.anim === "camina") v.fase += dt * vel * 3.6;
+    v.paso = (v.paso || 0) + ((e.anim === "camina" ? 1 : 0) - (v.paso || 0)) * Math.min(1, dt * 10);
+    const k = v.paso, s = Math.sin(v.fase), cuerpo = v.mod.objeto.children[0];
+    const tAtaque = this.m.tiempo - e.golpeT;
+    let golpe = 0;                                         // 0..1: cuánto del golpe (ataque o herramienta)
+    if (tAtaque < 0.5) golpe = Math.sin(Math.min(1, tAtaque / 0.5) * Math.PI);
+    else if (e.anim === "trabaja") { const c = (this.tiempo * 2.2 + v.fase) % 1; golpe = c < 0.6 ? c / 0.6 : 1 - (c - 0.6) / 0.4; }
+    const H = v.mod.huesos;
+    if (H) {
+      const gira = (h, eje, ang, despues) => {
+        if (!h) return;
+        h.quaternion.copy(h.userData.q0);
+        if (despues) h.quaternion.multiply(despues);
+        if (ang) h.quaternion.multiply(this.qTmp.setFromAxisAngle(eje, ang));
+      };
+      const X = this.ejeX || (this.ejeX = new THREE.Vector3(1, 0, 0)), Z = this.ejeZ || (this.ejeZ = new THREE.Vector3(0, 0, 1));
+      this.qTmp ||= new THREE.Quaternion();
+      const baja = this.qBaja || (this.qBaja = new THREE.Quaternion().setFromAxisAngle(X, 1.25));   // de la pose en T a brazos al costado
+      // brazos: al costado, balanceo opuesto a las piernas; el derecho sube y golpea con la herramienta o el arma
+      gira(H.brazoI, Z, -0.45 * s * k, baja);
+      gira(H.brazoD, Z, -0.45 * s * k - golpe * 2.1, baja);
+      gira(H.antebrazoD, Z, -golpe * 0.6);
+      gira(H.musloI, X, 0.55 * s * k);
+      gira(H.musloD, X, -0.55 * s * k);
+      gira(H.columna, X, 0.05 + Math.sin(this.tiempo * 2 + v.fase) * 0.02 + golpe * 0.12);
+      cuerpo.position.y = Math.abs(Math.cos(v.fase)) * 0.03 * k;
+    } else {
+      cuerpo.position.y = Math.abs(Math.cos(v.fase)) * 0.05 * k + Math.sin(this.tiempo * 2 + v.fase) * 0.004;
+      cuerpo.rotation.z = Math.sin(v.fase) * 0.06 * k;
+      cuerpo.rotation.x = 0.06 * k + golpe * 0.28;
+      cuerpo.position.z = golpe * 0.14;
+    }
+  }
 
   animarCatapulta(e, v, P, dt) {
     // las ruedas giran según lo que avanzó; el brazo se dispara y vuelve a cargar
